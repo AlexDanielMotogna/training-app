@@ -7,9 +7,16 @@ import {
   Button,
   TextField,
   Box,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import { useI18n } from '../../i18n/I18nProvider';
-import { saveUser, calculateAge, type MockUser } from '../../services/mock';
+import { saveUser, calculateAge, type MockUser } from '../../services/userProfile';
+import { updateUserProfile } from '../../services/userProfile';
+import { toastService } from '../../services/toast';
+import { getTeamSettings } from '../../services/teamSettings';
 
 interface EditProfileDialogProps {
   open: boolean;
@@ -25,11 +32,16 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
   onSave,
 }) => {
   const { t } = useI18n();
+  const teamSettings = getTeamSettings();
+  const allowedCategories = teamSettings.allowedCategories || [];
+
   const [name, setName] = useState(user.name);
   const [jerseyNumber, setJerseyNumber] = useState(user.jerseyNumber?.toString() || '');
   const [birthDate, setBirthDate] = useState(user.birthDate || '');
   const [weightKg, setWeightKg] = useState(user.weightKg);
   const [heightCm, setHeightCm] = useState(user.heightCm);
+  const [sex, setSex] = useState<'male' | 'female'>(user.sex || 'male');
+  const [ageCategory, setAgeCategory] = useState(user.ageCategory || '');
   const [phone, setPhone] = useState(user.phone || '+43');
   const [instagram, setInstagram] = useState(user.instagram || '');
   const [snapchat, setSnapchat] = useState(user.snapchat || '');
@@ -63,30 +75,45 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
     validatePhone(value);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validate phone before saving
     if (!validatePhone(phone)) {
+      toastService.validationError('Please enter a valid phone number');
       return;
     }
 
-    const updatedUser: MockUser = {
-      ...user,
-      name,
-      jerseyNumber: jerseyNumber && jerseyNumber !== '--' ? Number(jerseyNumber) : undefined,
-      birthDate,
-      age: birthDate ? calculateAge(birthDate) : user.age,
-      weightKg: Number(weightKg),
-      heightCm: Number(heightCm),
-      phone: phone && phone !== '+43' ? phone : undefined,
-      instagram: instagram || undefined,
-      snapchat: snapchat || undefined,
-      tiktok: tiktok || undefined,
-      hudl: hudl || undefined,
-    };
+    try {
+      const updates: Partial<MockUser> = {
+        name,
+        jerseyNumber: jerseyNumber && jerseyNumber !== '--' ? Number(jerseyNumber) : undefined,
+        birthDate,
+        age: birthDate ? calculateAge(birthDate) : user.age,
+        weightKg: Number(weightKg),
+        heightCm: Number(heightCm),
+        sex,
+        ageCategory: ageCategory || undefined,
+        phone: phone && phone !== '+43' ? phone : undefined,
+        instagram: instagram || undefined,
+        snapchat: snapchat || undefined,
+        tiktok: tiktok || undefined,
+        hudl: hudl || undefined,
+      };
 
-    saveUser(updatedUser);
-    onSave(updatedUser);
-    onClose();
+      // Use the new sync service that handles backend sync
+      const updatedUser = await updateUserProfile(updates);
+
+      if (updatedUser) {
+        // Also save to mock service for backward compatibility
+        saveUser(updatedUser);
+        onSave(updatedUser);
+        toastService.updated('Profile');
+      }
+
+      onClose();
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      toastService.updateError('profile', error instanceof Error ? error.message : undefined);
+    }
   };
 
   return (
@@ -123,6 +150,39 @@ export const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
               min: new Date(new Date().setFullYear(new Date().getFullYear() - 100)).toISOString().split('T')[0]
             }}
           />
+
+          <FormControl fullWidth required>
+            <InputLabel>{t('auth.gender')}</InputLabel>
+            <Select
+              value={sex}
+              label={t('auth.gender')}
+              onChange={(e) => setSex(e.target.value as 'male' | 'female')}
+            >
+              <MenuItem value="male">{t('auth.male')}</MenuItem>
+              <MenuItem value="female">{t('auth.female')}</MenuItem>
+            </Select>
+          </FormControl>
+
+          {/* Age Category - only show if team has configured categories */}
+          {allowedCategories.length > 0 && (
+            <FormControl fullWidth>
+              <InputLabel>Age Category</InputLabel>
+              <Select
+                value={ageCategory}
+                label="Age Category"
+                onChange={(e) => setAgeCategory(e.target.value)}
+              >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                {allowedCategories.map((category) => (
+                  <MenuItem key={category} value={category}>
+                    {category}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
 
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
             <TextField

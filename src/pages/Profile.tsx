@@ -8,13 +8,26 @@ import {
   Chip,
   IconButton,
   Button,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PhoneIcon from '@mui/icons-material/Phone';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useI18n } from '../i18n/I18nProvider';
-import { getUser, getAllUsers, type MockUser } from '../services/mock';
+import {
+  getUser,
+  getAllUsers,
+  saveUser,
+  updateUserProfile,
+  getCurrentUser,
+  syncUserProfileFromBackend,
+  syncAllUsersFromBackend,
+  type MockUser
+} from '../services/userProfile';
 import { calculateKPIs } from '../services/kpi';
 import { StrengthProfileCard } from '../components/profile/StrengthProfileCard';
 import { StrengthBars } from '../components/profile/StrengthBars';
@@ -23,8 +36,11 @@ import { PowerProfileCard } from '../components/profile/PowerProfileCard';
 import { AgilityProfileCard } from '../components/profile/AgilityProfileCard';
 import { EditProfileDialog } from '../components/profile/EditProfileDialog';
 import { AISettings } from '../components/profile/AISettings';
+import { getTeamSettings } from '../services/teamSettings';
+import { testResultService } from '../services/api';
 import type { KPISnapshot } from '../types/kpi';
 import type { StrengthSummary, SpeedSummary, PowerSummary, AgilitySummary } from '../types/testing';
+import { toastService } from '../services/toast';
 
 export const Profile: React.FC = () => {
   const { t } = useI18n();
@@ -35,8 +51,19 @@ export const Profile: React.FC = () => {
   // If playerId is provided, show that player's profile, otherwise show current user
   const [user, setUser] = useState<MockUser | null>(() => {
     if (playerId) {
+      console.log('[PROFILE] Looking for player:', playerId);
       const allUsers = getAllUsers();
-      return allUsers.find(u => u.id === playerId) || null;
+      console.log('[PROFILE] getAllUsers() returned:', allUsers, 'Type:', typeof allUsers, 'Is Array:', Array.isArray(allUsers));
+
+      // Ensure allUsers is an array
+      if (!Array.isArray(allUsers)) {
+        console.error('[PROFILE] getAllUsers() did not return an array!', allUsers);
+        return null;
+      }
+
+      const foundUser = allUsers.find(u => u.id === playerId);
+      console.log('[PROFILE] Found user:', foundUser);
+      return foundUser || null;
     }
     return currentUser;
   });
@@ -48,52 +75,109 @@ export const Profile: React.FC = () => {
   const [powerSummary, setPowerSummary] = useState<PowerSummary | null>(null);
   const [agilitySummary, setAgilitySummary] = useState<AgilitySummary | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [teamSettings] = useState(() => getTeamSettings());
+
+  // Sync user profile from backend on mount
+  useEffect(() => {
+    const syncProfile = async () => {
+      if (!isViewingOtherPlayer) {
+        // Only sync current user's profile
+        await syncUserProfileFromBackend();
+        // Refresh user data after sync
+        const updatedUser = getCurrentUser();
+        if (updatedUser) {
+          setUser(updatedUser);
+        }
+      } else if (playerId) {
+        // Sync all users to get latest data for other players
+        await syncAllUsersFromBackend();
+        const allUsers = getAllUsers();
+        const updatedPlayer = allUsers.find(u => u.id === playerId);
+        if (updatedPlayer) {
+          setUser(updatedPlayer);
+        }
+      }
+    };
+
+    syncProfile();
+  }, [playerId, isViewingOtherPlayer]);
 
   useEffect(() => {
-    if (user) {
-      setKpis(calculateKPIs(user.id));
-    }
-
-    // Load last strength test from localStorage
-    const lastStrengthTest = localStorage.getItem('lastStrengthTest');
-    if (lastStrengthTest) {
-      try {
-        setStrengthSummary(JSON.parse(lastStrengthTest));
-      } catch (e) {
-        console.error('Failed to parse strength test data', e);
+    const loadKPIs = async () => {
+      if (user) {
+        const kpisData = await calculateKPIs(user.id);
+        setKpis(kpisData);
       }
-    }
+    };
 
-    // Load last speed test from localStorage
-    const lastSpeedTest = localStorage.getItem('lastSpeedTest');
-    if (lastSpeedTest) {
-      try {
-        setSpeedSummary(JSON.parse(lastSpeedTest));
-      } catch (e) {
-        console.error('Failed to parse speed test data', e);
-      }
-    }
+    const loadTestResults = async () => {
+      if (!user) return;
 
-    // Load last power test from localStorage
-    const lastPowerTest = localStorage.getItem('lastPowerTest');
-    if (lastPowerTest) {
-      try {
-        setPowerSummary(JSON.parse(lastPowerTest));
-      } catch (e) {
-        console.error('Failed to parse power test data', e);
-      }
-    }
+      console.log('[PROFILE] Loading test results for user:', user.id);
 
-    // Load last agility test from localStorage
-    const lastAgilityTest = localStorage.getItem('lastAgilityTest');
-    if (lastAgilityTest) {
-      try {
-        setAgilitySummary(JSON.parse(lastAgilityTest));
-      } catch (e) {
-        console.error('Failed to parse agility test data', e);
-      }
-    }
+      // Load test results from backend first, fallback to localStorage
+      await loadTestResult('strength', setStrengthSummary, 'lastStrengthTest');
+      await loadTestResult('speed', setSpeedSummary, 'lastSpeedTest');
+      await loadTestResult('power', setPowerSummary, 'lastPowerTest');
+      await loadTestResult('agility', setAgilitySummary, 'lastAgilityTest');
+    };
+
+    loadKPIs();
+    loadTestResults();
   }, [user]);
+
+  // Helper function to load test result from backend or localStorage
+  const loadTestResult = async (
+    testType: string,
+    setSummary: (summary: any) => void,
+    localStorageKey: string
+  ) => {
+    try {
+      // Try to load from backend first
+      console.log(`[PROFILE] Loading ${testType} test from backend...`);
+      
+      let backendResult;
+      if (isViewingOtherPlayer && user) {
+        // Loading for another user - use the new endpoint
+        console.log(`[PROFILE] Loading ${testType} test for user ${user.id}...`);
+        backendResult = await testResultService.getLatestForUser(testType, user.id);
+      } else {
+        // Loading for current user - use existing endpoint
+        backendResult = await testResultService.getLatest(testType);
+      }
+      
+      if (backendResult && typeof backendResult === 'object' && 'testData' in backendResult) {
+        const testData = (backendResult as any).testData;
+        console.log(`[PROFILE] ✅ Loaded ${testType} test from backend:`, testData);
+        setSummary(testData);
+        
+        // Only update localStorage cache for current user's own data
+        if (!isViewingOtherPlayer) {
+          localStorage.setItem(localStorageKey, JSON.stringify(testData));
+        }
+        return;
+      }
+    } catch (error) {
+      console.warn(`[PROFILE] ⚠️ Failed to load ${testType} test from backend:`, error);
+    }
+
+    // Fallback to localStorage (only for current user's own profile)
+    if (!isViewingOtherPlayer) {
+      const localData = localStorage.getItem(localStorageKey);
+      if (localData) {
+        try {
+          console.log(`[PROFILE] 📦 Loading ${testType} test from localStorage`);
+          setSummary(JSON.parse(localData));
+        } catch (e) {
+          console.error(`[PROFILE] ❌ Failed to parse ${testType} test data from localStorage:`, e);
+        }
+      } else {
+        console.log(`[PROFILE] 📭 No ${testType} test data found in backend or localStorage`);
+      }
+    } else {
+      console.log(`[PROFILE] 📭 No ${testType} test data found in backend for visited user`);
+    }
+  };
 
   if (!user || !kpis) {
     return (
@@ -165,6 +249,7 @@ export const Profile: React.FC = () => {
               <Chip label={`${user.age} years`} size="small" />
               <Chip label={`${user.weightKg} kg`} size="small" />
               <Chip label={`${user.heightCm} cm`} size="small" />
+              {user.sex && <Chip label={t(`auth.${user.sex}`)} size="small" />}
             </Box>
             {(user.phone || user.instagram || user.snapchat || user.tiktok || user.hudl) && (
               <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mt: 2, alignItems: 'center' }}>
@@ -289,6 +374,69 @@ export const Profile: React.FC = () => {
         </Card>
       </Box>
 
+      {/* Team Settings Card */}
+      <Box sx={{ mb: 3 }}>
+        <Card>
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              {t('teamSettings.title')}
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Box
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: '50%',
+                      backgroundColor: 'primary.main',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <CalendarMonthIcon sx={{ color: 'white', fontSize: 20 }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {t('teamSettings.seasonPhase')}
+                    </Typography>
+                    <Typography variant="body1" fontWeight={600}>
+                      {t(`teamSettings.phase.${teamSettings.seasonPhase}`)}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Box
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: '50%',
+                      backgroundColor: 'warning.main',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <WorkspacePremiumIcon sx={{ color: 'white', fontSize: 20 }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      {t('teamSettings.teamLevel')}
+                    </Typography>
+                    <Typography variant="body1" fontWeight={600}>
+                      {t(`teamSettings.level.${teamSettings.teamLevel}`)}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+      </Box>
+
       {/* Edit Profile Dialog */}
       {user && (
         <EditProfileDialog
@@ -299,12 +447,56 @@ export const Profile: React.FC = () => {
         />
       )}
 
-      <Typography variant="h5" sx={{ mb: 2 }}>
-        {t('profile.metrics')}
-      </Typography>
+      {/* Privacy Settings - Only show for own profile */}
+      {!isViewingOtherPlayer && (
+        <Box sx={{ mb: 3 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                {t('profile.privacySettings')}
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={user.metricsPublic ?? true}
+                    onChange={async (e) => {
+                      const newValue = e.target.checked;
+                      // Update local state immediately for responsiveness
+                      const updatedUser = { ...user, metricsPublic: newValue };
+                      setUser(updatedUser);
 
-      {/* This Week Section */}
-      <Card sx={{ mb: 3 }}>
+                      // Sync with backend
+                      try {
+                        await updateUserProfile({ metricsPublic: newValue });
+                        toastService.updated('Privacy Settings');
+                      } catch (error) {
+                        console.error('Failed to update privacy settings:', error);
+                        toastService.updateError('privacy settings', error instanceof Error ? error.message : undefined);
+                        // Revert on error
+                        setUser(user);
+                      }
+                    }}
+                  />
+                }
+                label={t('profile.makeMetricsPublic')}
+              />
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                {t('profile.metricsPublicHelp')}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Box>
+      )}
+
+      {/* Check if metrics should be shown */}
+      {(currentUser?.role === 'coach' || !isViewingOtherPlayer || user.metricsPublic !== false) ? (
+        <>
+          <Typography variant="h5" sx={{ mb: 2 }}>
+            {t('profile.metrics')}
+          </Typography>
+
+          {/* This Week Section */}
+          <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" sx={{ mb: 2 }}>
             {t('profile.thisWeek')} (Week {kpis.currentWeek}/{kpis.totalWeeks})
@@ -429,7 +621,7 @@ export const Profile: React.FC = () => {
       {/* Strength */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} md={6}>
-          <StrengthProfileCard summary={strengthSummary} change={kpis.strengthScore.change} />
+          <StrengthProfileCard summary={strengthSummary} change={kpis.strengthScore.change} isViewingOtherPlayer={!!isViewingOtherPlayer} />
         </Grid>
         <Grid item xs={12} md={6}>
           {strengthSummary && (
@@ -456,15 +648,28 @@ export const Profile: React.FC = () => {
       {/* Speed, Power, Agility */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={4}>
-          <SpeedProfileCard summary={speedSummary} change={kpis.speedScore.change} />
+          <SpeedProfileCard summary={speedSummary} change={kpis.speedScore.change} isViewingOtherPlayer={!!isViewingOtherPlayer} />
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
-          <PowerProfileCard summary={powerSummary} change={kpis.powerScore.change} />
+          <PowerProfileCard summary={powerSummary} change={kpis.powerScore.change} isViewingOtherPlayer={!!isViewingOtherPlayer} />
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
-          <AgilityProfileCard summary={agilitySummary} change={kpis.agilityScore.change} />
+          <AgilityProfileCard summary={agilitySummary} change={kpis.agilityScore.change} isViewingOtherPlayer={!!isViewingOtherPlayer} />
         </Grid>
       </Grid>
+        </>
+      ) : (
+        <Card sx={{ mb: 3 }}>
+          <CardContent sx={{ textAlign: 'center', py: 6 }}>
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              {t('profile.metricsPrivate')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t('profile.metricsPrivateMessage')}
+            </Typography>
+          </CardContent>
+        </Card>
+      )}
 
       {/* AI Settings - Only show for own profile */}
       {!isViewingOtherPlayer && (

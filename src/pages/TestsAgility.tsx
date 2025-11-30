@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Button } from '@mui/material';
 import { AgilityWizard } from '../components/tests/AgilityWizard';
 import { AgilitySummary } from '../components/tests/AgilitySummary';
@@ -6,7 +6,8 @@ import { useI18n } from '../i18n/I18nProvider';
 import type { AgilityResult, AgilitySummary as AgilitySummaryType, Tier, AgilityTestKey } from '../types/testing';
 import { agilityScore, agilityIndex, labelFromAgilityIndex } from '../services/agilityCalc';
 import { getAgilityBenchmarks } from '../services/agilityBenchmarks';
-import { getUser } from '../services/mock';
+import { getUser } from '../services/userProfile';
+import { saveTestResult, syncTestResultsFromBackend } from '../services/testResults';
 
 export const TestsAgility: React.FC = () => {
   const { t } = useI18n();
@@ -17,12 +18,17 @@ export const TestsAgility: React.FC = () => {
   const user = getUser()!;
   const position = user.position;
 
+  // Sync test results from backend on mount
+  useEffect(() => {
+    syncTestResultsFromBackend();
+  }, []);
+
   const handleWizardFinish = (results: AgilityResult[]) => {
     setTestResults(results);
-    computeSummary(results, selectedTier);
+    computeSummary(results, selectedTier, true); // Save on wizard finish
   };
 
-  const computeSummary = (results: AgilityResult[], tier: Tier) => {
+  const computeSummary = (results: AgilityResult[], tier: Tier, shouldSave: boolean = false) => {
     const benchmarks = getAgilityBenchmarks(position);
     const scores: Record<AgilityTestKey, number> = {} as any;
 
@@ -49,14 +55,10 @@ export const TestsAgility: React.FC = () => {
 
     setSummary(newSummary);
 
-    // Save previous test before overwriting
-    const previousTest = localStorage.getItem('lastAgilityTest');
-    if (previousTest) {
-      localStorage.setItem('lastAgilityTest_previous', previousTest);
+    // Only save to backend when explicitly requested (not on tier change)
+    if (shouldSave) {
+      saveTestResult('agility', newSummary, index, label);
     }
-
-    // Save to localStorage
-    localStorage.setItem('lastAgilityTest', JSON.stringify(newSummary));
   };
 
   const handleTierChange = (tier: Tier) => {

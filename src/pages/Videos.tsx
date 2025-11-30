@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -20,19 +20,26 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import { getPublishedVideos, getPlayerProgressForAllVideos, isYouTubeShort, getYouTubeVideoId } from '../services/videos';
-import { getUser } from '../services/mock';
-import type { Video, VideoType, PositionTag, RouteTag, CoverageTag, VideoLevel, WatchStatus } from '../types/video';
+import { getPublishedVideos, getPlayerProgressForAllVideos, isYouTubeShort, getYouTubeVideoId, syncVideosFromBackend } from '../services/videos';
+import { getUser } from '../services/userProfile';
+import type { Video, VideoType, PositionTag, RouteTag, CoverageTag, RunConceptTag, VideoLevel, WatchStatus } from '../types/video';
 
 export const Videos: React.FC = () => {
   const user = getUser();
+
+  // Sync videos from backend on mount
+  useEffect(() => {
+    if (user) {
+      syncVideosFromBackend();
+    }
+  }, [user]);
   const [activeTab, setActiveTab] = useState<VideoType>('position');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPosition, setSelectedPosition] = useState<PositionTag | 'all'>('all');
   const [selectedRoute, setSelectedRoute] = useState<RouteTag | 'all'>('all');
   const [selectedCoverage, setSelectedCoverage] = useState<CoverageTag | 'all'>('all');
+  const [selectedRunConcept, setSelectedRunConcept] = useState<RunConceptTag | 'all'>('all');
   const [selectedLevel, setSelectedLevel] = useState<VideoLevel | 'all'>('all');
-  const [selectedStatus, setSelectedStatus] = useState<WatchStatus | 'all'>('all');
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [videosToShow, setVideosToShow] = useState(30); // Start with 30 videos
 
@@ -64,7 +71,8 @@ export const Videos: React.FC = () => {
         const matchesTags =
           video.positions?.some(p => p.toLowerCase().includes(query)) ||
           video.routes?.some(r => r.toLowerCase().includes(query)) ||
-          video.coverages?.some(c => c.toLowerCase().includes(query));
+          video.coverages?.some(c => c.toLowerCase().includes(query)) ||
+          video.runs?.some(r => r.toLowerCase().includes(query));
 
         if (!matchesTitle && !matchesDescription && !matchesTags) return false;
       }
@@ -84,24 +92,24 @@ export const Videos: React.FC = () => {
         if (!video.coverages?.includes(selectedCoverage)) return false;
       }
 
+      // Run concept filter
+      if (selectedRunConcept !== 'all' && activeTab === 'run') {
+        if (!video.runs?.includes(selectedRunConcept)) return false;
+      }
+
       // Level filter
       if (selectedLevel !== 'all') {
         if (video.level !== selectedLevel) return false;
       }
 
-      // Status filter
-      if (selectedStatus !== 'all') {
-        if (getVideoStatus(video.id) !== selectedStatus) return false;
-      }
-
       return true;
     });
-  }, [videos, activeTab, searchQuery, selectedPosition, selectedRoute, selectedCoverage, selectedLevel, selectedStatus]);
+  }, [videos, activeTab, searchQuery, selectedPosition, selectedRoute, selectedCoverage, selectedRunConcept, selectedLevel]);
 
   // Reset videosToShow when filters change
   React.useEffect(() => {
     setVideosToShow(VIDEOS_PER_PAGE);
-  }, [activeTab, searchQuery, selectedPosition, selectedRoute, selectedCoverage, selectedLevel, selectedStatus]);
+  }, [activeTab, searchQuery, selectedPosition, selectedRoute, selectedCoverage, selectedRunConcept, selectedLevel]);
 
   // Visible videos (paginated)
   const visibleVideos = useMemo(() => {
@@ -224,6 +232,9 @@ export const Videos: React.FC = () => {
               {video.coverages?.slice(0, 2).map(coverage => (
                 <Chip key={coverage} label={coverage} size="small" variant="outlined" />
               ))}
+              {video.runs?.slice(0, 2).map(run => (
+                <Chip key={run} label={run} size="small" variant="outlined" />
+              ))}
             </Box>
           </CardContent>
         </Card>
@@ -246,6 +257,7 @@ export const Videos: React.FC = () => {
         <Tab label="Positions" value="position" />
         <Tab label="Routes" value="route" />
         <Tab label="Coverages" value="coverage" />
+        <Tab label="Run Concepts" value="run" />
       </Tabs>
 
       {/* Search and Filters */}
@@ -339,6 +351,33 @@ export const Videos: React.FC = () => {
           </Grid>
         )}
 
+        {activeTab === 'run' && (
+          <Grid item xs={12} sm={6} md={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Run Concept</InputLabel>
+              <Select
+                value={selectedRunConcept}
+                label="Run Concept"
+                onChange={(e) => setSelectedRunConcept(e.target.value as RunConceptTag | 'all')}
+              >
+                <MenuItem value="all">All Run Concepts</MenuItem>
+                <MenuItem value="Inside Zone">Inside Zone</MenuItem>
+                <MenuItem value="Outside Zone">Outside Zone</MenuItem>
+                <MenuItem value="Counter">Counter</MenuItem>
+                <MenuItem value="Power">Power</MenuItem>
+                <MenuItem value="Trap">Trap</MenuItem>
+                <MenuItem value="Stretch">Stretch</MenuItem>
+                <MenuItem value="Toss">Toss</MenuItem>
+                <MenuItem value="Sweep">Sweep</MenuItem>
+                <MenuItem value="Draw">Draw</MenuItem>
+                <MenuItem value="Iso">Iso</MenuItem>
+                <MenuItem value="Wham">Wham</MenuItem>
+                <MenuItem value="Dart">Dart</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+        )}
+
         <Grid item xs={12} sm={6} md={2}>
           <FormControl fullWidth size="small">
             <InputLabel>Level</InputLabel>
@@ -351,22 +390,6 @@ export const Videos: React.FC = () => {
               <MenuItem value="intro">Intro</MenuItem>
               <MenuItem value="intermediate">Intermediate</MenuItem>
               <MenuItem value="advanced">Advanced</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={2}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={selectedStatus}
-              label="Status"
-              onChange={(e) => setSelectedStatus(e.target.value as WatchStatus | 'all')}
-            >
-              <MenuItem value="all">All Status</MenuItem>
-              <MenuItem value="new">New</MenuItem>
-              <MenuItem value="in-progress">In Progress</MenuItem>
-              <MenuItem value="completed">Completed</MenuItem>
             </Select>
           </FormControl>
         </Grid>
@@ -479,6 +502,9 @@ export const Videos: React.FC = () => {
                 ))}
                 {selectedVideo.coverages?.map(coverage => (
                   <Chip key={coverage} label={coverage} size="small" variant="outlined" />
+                ))}
+                {selectedVideo.runs?.map(run => (
+                  <Chip key={run} label={run} size="small" variant="outlined" />
                 ))}
               </Box>
             </Box>

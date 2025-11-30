@@ -25,6 +25,17 @@ export interface MockUser {
   snapchat?: string; // Optional Snapchat username
   tiktok?: string; // Optional TikTok handle
   hudl?: string; // Optional Hudl profile URL
+
+  // Privacy Settings
+  metricsPublic?: boolean; // Toggle to make metrics visible to other players (default: true)
+
+  // Age Categories (SaaS multi-sport support)
+  ageCategory?: string; // Player's age category (e.g., 'U13', 'U15', 'Seniors')
+  coachCategories?: string[]; // Categories this coach manages (for coaches only)
+
+  // AI Coach Configuration (personal - only used if team API not configured)
+  aiCoachEnabled?: boolean; // Toggle to enable/disable AI coach
+  aiApiKey?: string; // Personal OpenAI API key
 }
 
 /**
@@ -54,6 +65,8 @@ export function saveUser(user: MockUser): void {
 
   // Check if user already exists (by email)
   const existingIndex = allUsers.findIndex(u => u.email === user.email);
+  const isNewUser = existingIndex < 0;
+
   if (existingIndex >= 0) {
     // Update existing user
     allUsers[existingIndex] = user;
@@ -63,6 +76,13 @@ export function saveUser(user: MockUser): void {
   }
 
   localStorage.setItem(usersKey, JSON.stringify(allUsers));
+
+  // Initialize default workout plans for new players
+  if (isNewUser && user.role === 'player') {
+    import('./workoutPlanTemplates').then(({ initializeDefaultWorkoutPlans }) => {
+      initializeDefaultWorkoutPlans(user.id, user.position);
+    });
+  }
 }
 
 export function getUser(): MockUser | null {
@@ -71,7 +91,17 @@ export function getUser(): MockUser | null {
 }
 
 export function logout(): void {
+  // Remove all auth-related data from localStorage
   localStorage.removeItem('currentUser');
+  localStorage.removeItem('auth_token');
+
+  // Dispatch a custom event to notify all components of the logout
+  // This allows immediate UI updates without polling
+  window.dispatchEvent(new CustomEvent('user-logout'));
+
+  // Also clear any cached data that should be user-specific
+  // This ensures a clean logout experience
+  console.log('🔓 User logged out successfully');
 }
 
 /**
@@ -232,81 +262,44 @@ export function getMockLeaderboard(): LeaderboardRow[] {
 }
 
 /**
- * Mock notifications
+ * Mock notifications - DEPRECATED
+ * Notifications now come from backend via notificationService in api.ts
+ * These functions are kept for backward compatibility but return empty data
  */
 const NOTIFICATIONS_KEY = 'notifications';
 
+/**
+ * Clean up old mock notifications from localStorage
+ * Should be called once on app initialization
+ */
+export function cleanupMockNotifications(): void {
+  localStorage.removeItem(NOTIFICATIONS_KEY);
+  console.log('[CLEANUP] Removed mock notifications from localStorage');
+}
+
 export function getMockNotifications(): Notification[] {
-  const stored = localStorage.getItem(NOTIFICATIONS_KEY);
-  if (stored) {
-    const parsed = JSON.parse(stored);
-    // Convert timestamp strings back to Date objects
-    return parsed.map((n: any) => ({
-      ...n,
-      timestamp: new Date(n.timestamp),
-    }));
-  }
-
-  // Default notifications
-  const defaultNotifications: Notification[] = [
-    {
-      id: 'notif-1',
-      type: 'new_plan',
-      title: 'New Training Plan Available',
-      message: 'Coach has created a new strength training plan for your position.',
-      timestamp: new Date(Date.now() - 3600000), // 1 hour ago
-      read: false,
-      actionUrl: '/training',
-    },
-    {
-      id: 'notif-2',
-      type: 'new_exercise',
-      title: 'New Exercise Added',
-      message: 'Power Clean has been added to your training catalog.',
-      timestamp: new Date(Date.now() - 7200000), // 2 hours ago
-      read: false,
-      actionUrl: '/training',
-    },
-    {
-      id: 'notif-3',
-      type: 'attendance_reminder',
-      title: 'Training Session Tomorrow',
-      message: 'Reminder: Team training on Tuesday at 19:00.',
-      timestamp: new Date(Date.now() - 86400000), // 1 day ago
-      read: true,
-      actionUrl: '/attendance',
-    },
-  ];
-
-  saveNotifications(defaultNotifications);
-  return defaultNotifications;
+  // Return empty array - notifications now come from backend
+  return [];
 }
 
 export function saveNotifications(notifications: Notification[]): void {
-  localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(notifications));
+  // No-op - notifications are managed by backend
+  console.warn('[DEPRECATED] saveNotifications() is deprecated. Notifications are managed by backend.');
 }
 
 export function markNotificationAsRead(id: string): void {
-  const notifications = getMockNotifications();
-  const updated = notifications.map((n) =>
-    n.id === id ? { ...n, read: true } : n
-  );
-  saveNotifications(updated);
+  // No-op - use notificationService.markAsRead() instead
+  console.warn('[DEPRECATED] markNotificationAsRead() is deprecated. Use notificationService.markAsRead() instead.');
 }
 
 export function markAllNotificationsAsRead(): void {
-  const notifications = getMockNotifications();
-  const updated = notifications.map((n) => ({ ...n, read: true }));
-  saveNotifications(updated);
+  // No-op - use notificationService.markAllAsRead() instead
+  console.warn('[DEPRECATED] markAllNotificationsAsRead() is deprecated. Use notificationService.markAllAsRead() instead.');
 }
 
 export function addNotification(notification: Omit<Notification, 'id'>): void {
-  const notifications = getMockNotifications();
-  const newNotification: Notification = {
-    ...notification,
-    id: `notif-${Date.now()}`,
-  };
-  saveNotifications([newNotification, ...notifications]);
+  // No-op - notifications are created by backend
+  console.warn('[DEPRECATED] addNotification() is deprecated. Notifications are created by backend.');
 }
 
 /**
@@ -328,6 +321,7 @@ export function initializeDemoProfiles(): void {
       weightKg: 0,
       heightCm: 0,
       position: 'RB',
+      sex: 'male',
     },
     {
       id: 'demo-player-1',
@@ -339,6 +333,7 @@ export function initializeDemoProfiles(): void {
       weightKg: 95,
       heightCm: 180,
       position: 'RB',
+      sex: 'male',
     },
     {
       id: 'demo-player-2',
@@ -350,6 +345,7 @@ export function initializeDemoProfiles(): void {
       weightKg: 88,
       heightCm: 185,
       position: 'WR',
+      sex: 'male',
     },
     {
       id: 'demo-player-3',
@@ -361,6 +357,7 @@ export function initializeDemoProfiles(): void {
       weightKg: 102,
       heightCm: 193,
       position: 'TE',
+      sex: 'male',
     },
     {
       id: 'demo-player-4',
@@ -372,6 +369,7 @@ export function initializeDemoProfiles(): void {
       weightKg: 110,
       heightCm: 188,
       position: 'LB',
+      sex: 'male',
     },
   ];
 

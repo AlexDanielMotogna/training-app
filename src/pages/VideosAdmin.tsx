@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -23,6 +23,7 @@ import {
   Chip,
   Alert,
   SelectChangeEvent,
+  CircularProgress,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -34,8 +35,12 @@ import {
   createVideo,
   updateVideo,
   deleteVideo,
+  syncVideosFromBackend,
 } from '../services/videos';
-import { getUser } from '../services/mock';
+import { getUser } from '../services/userProfile';
+import { videoTagsService } from '../services/api';
+import { extractYouTubeVideoId } from '../services/yt';
+import { toastService } from '../services/toast';
 import type {
   Video,
   VideoType,
@@ -45,13 +50,60 @@ import type {
   PositionTag,
   RouteTag,
   CoverageTag,
+  RunConceptTag,
 } from '../types/video';
+
+interface VideoTag {
+  id: string;
+  type: 'position' | 'route' | 'coverage' | 'run';
+  name: string;
+  order: number;
+}
 
 export const VideosAdmin: React.FC = () => {
   const user = getUser();
   const [videos, setVideos] = useState<Video[]>(getAllVideos());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingVideo, setEditingVideo] = useState<Video | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Dynamic tags from backend
+  const [positionTags, setPositionTags] = useState<string[]>([]);
+  const [routeTags, setRouteTags] = useState<string[]>([]);
+  const [coverageTags, setCoverageTags] = useState<string[]>([]);
+  const [runTags, setRunTags] = useState<string[]>([]);
+
+  // Sync videos on mount
+  useEffect(() => {
+    if (user) {
+      syncVideosFromBackend().then(() => {
+        setVideos(getAllVideos());
+      });
+    }
+  }, [user]);
+
+  // Load tags on mount
+  useEffect(() => {
+    const loadTags = async () => {
+      try {
+        const [positions, routes, coverages, runs] = await Promise.all([
+          videoTagsService.getAll('position'),
+          videoTagsService.getAll('route'),
+          videoTagsService.getAll('coverage'),
+          videoTagsService.getAll('run'),
+        ]);
+        setPositionTags(positions.map((t: VideoTag) => t.name));
+        setRouteTags(routes.map((t: VideoTag) => t.name));
+        setCoverageTags(coverages.map((t: VideoTag) => t.name));
+        setRunTags(runs.map((t: VideoTag) => t.name));
+      } catch (err) {
+        console.error('Failed to load tags:', err);
+        // Fallback to empty arrays - coach can initialize tags from Admin > Video Tags
+      }
+    };
+    loadTags();
+  }, []);
 
   // Form state
   const [formData, setFormData] = useState<{
@@ -65,6 +117,7 @@ export const VideosAdmin: React.FC = () => {
     positions: PositionTag[];
     routes: RouteTag[];
     coverages: CoverageTag[];
+    runs: RunConceptTag[];
     isPinned: boolean;
   }>({
     type: 'position',
@@ -77,6 +130,7 @@ export const VideosAdmin: React.FC = () => {
     positions: [],
     routes: [],
     coverages: [],
+    runs: [],
     isPinned: false,
   });
 
@@ -94,6 +148,7 @@ export const VideosAdmin: React.FC = () => {
         positions: video.positions || [],
         routes: video.routes || [],
         coverages: video.coverages || [],
+        runs: video.runs || [],
         isPinned: video.isPinned || false,
       });
     } else {
@@ -109,6 +164,7 @@ export const VideosAdmin: React.FC = () => {
         positions: [],
         routes: [],
         coverages: [],
+        runs: [],
         isPinned: false,
       });
     }
@@ -120,46 +176,99 @@ export const VideosAdmin: React.FC = () => {
     setEditingVideo(null);
   };
 
-  const handleSave = () => {
+  const isValidYouTubeUrl = (url: string): boolean => {
+    // Use the robust extractYouTubeVideoId function from yt.ts
+    // which handles URLs with extra query parameters correctly
+    return extractYouTubeVideoId(url) !== undefined;
+  };
+
+  const handleSave = async () => {
     if (!formData.title.trim() || !formData.youtubeUrl.trim()) {
-      alert('Please fill in title and YouTube URL');
+      setError('Please fill in title and YouTube URL');
       return;
     }
 
-    if (editingVideo) {
-      // Update existing
-      updateVideo(editingVideo.id, formData);
-    } else {
-      // Create new
-      if (!user) return;
-      createVideo({
-        ...formData,
-        createdBy: user.id,
-      });
+    // Validate YouTube URL
+    if (!isValidYouTubeUrl(formData.youtubeUrl)) {
+      setError('Invalid YouTube URL. Please use a valid format like: https://www.youtube.com/watch?v=VIDEO_ID or https://youtu.be/VIDEO_ID');
+      return;
     }
 
-    setVideos(getAllVideos());
-    handleCloseDialog();
-  };
+    setLoading(true);
+    setError(null);
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this video?')) {
-      deleteVideo(id);
+    try {
+      if (editingVideo) {
+        // Update existing
+        await updateVideo(editingVideo.id, formData);
+        toastService.updated('Video');
+      } else {
+        // Create new
+        if (!user) return;
+        await createVideo({
+          ...formData,
+          createdBy: user.id,
+        });
+        toastService.created('Video');
+      }
+
       setVideos(getAllVideos());
+      handleCloseDialog();
+    } catch (err: any) {
+      console.error('Failed to save video:', err);
+      if (editingVideo) {
+        toastService.updateError('video', err.message);
+      } else {
+        toastService.createError('video', err.message);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleToggleStatus = (video: Video) => {
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this video?')) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      await deleteVideo(id);
+      setVideos(getAllVideos());
+      toastService.deleted('Video');
+    } catch (err: any) {
+      console.error('Failed to delete video:', err);
+      toastService.deleteError('video', err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleStatus = async (video: Video) => {
     const newStatus: VideoStatus = video.status === 'draft' ? 'published' : 'draft';
-    updateVideo(video.id, { status: newStatus });
-    setVideos(getAllVideos());
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      await updateVideo(video.id, { status: newStatus });
+      setVideos(getAllVideos());
+      toastService.updated('Video status');
+    } catch (err: any) {
+      console.error('Failed to toggle status:', err);
+      toastService.updateError('video status', err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSelectChange = (field: string) => (event: SelectChangeEvent<any>) => {
     setFormData({ ...formData, [field]: event.target.value });
   };
 
-  const handleMultiSelectChange = (field: 'positions' | 'routes' | 'coverages') => (event: SelectChangeEvent<string[]>) => {
+  const handleMultiSelectChange = (field: 'positions' | 'routes' | 'coverages' | 'runs') => (event: SelectChangeEvent<string[]>) => {
     setFormData({ ...formData, [field]: event.target.value as any[] });
   };
 
@@ -171,19 +280,21 @@ export const VideosAdmin: React.FC = () => {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => handleOpenDialog()}
+          disabled={loading}
         >
           Add New Video
         </Button>
       </Box>
 
       <Alert severity="info" sx={{ mb: 3 }}>
-        Manage training videos for positions, routes, and coverages. Add YouTube URLs and categorize with tags.
+        Manage training videos for positions, routes, coverages, and run concepts. Add YouTube URLs and categorize with tags.
       </Alert>
 
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow sx={{ backgroundColor: 'primary.main' }}>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Video</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Title</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Type</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
@@ -193,8 +304,41 @@ export const VideosAdmin: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {videos.map((video) => (
+            {videos.map((video) => {
+              // Extract YouTube video ID for thumbnail
+              const videoId = extractYouTubeVideoId(video.youtubeUrl);
+              const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null;
+
+              return (
               <TableRow key={video.id}>
+                <TableCell>
+                  {thumbnailUrl ? (
+                    <Box
+                      component="img"
+                      src={thumbnailUrl}
+                      alt={video.title}
+                      sx={{
+                        width: 120,
+                        height: 68,
+                        objectFit: 'cover',
+                        borderRadius: 1,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          opacity: 0.8,
+                        }
+                      }}
+                      onClick={() => window.open(video.youtubeUrl, '_blank')}
+                      onError={(e) => {
+                        // Replace with error placeholder if thumbnail fails to load
+                        (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="120" height="68"%3E%3Crect width="120" height="68" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23999" font-family="Arial" font-size="12"%3EInvalid URL%3C/text%3E%3C/svg%3E';
+                      }}
+                    />
+                  ) : (
+                    <Chip label="No video" size="small" color="default" />
+                  )}
+                </TableCell>
                 <TableCell>
                   <Box>
                     <Typography variant="body2" fontWeight={600}>
@@ -257,7 +401,8 @@ export const VideosAdmin: React.FC = () => {
                   </Box>
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
           </TableBody>
         </Table>
       </TableContainer>
@@ -274,6 +419,11 @@ export const VideosAdmin: React.FC = () => {
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>{editingVideo ? 'Edit Video' : 'Add New Video'}</DialogTitle>
         <DialogContent>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             {/* Type */}
             <FormControl fullWidth>
@@ -286,6 +436,7 @@ export const VideosAdmin: React.FC = () => {
                 <MenuItem value="position">Position</MenuItem>
                 <MenuItem value="route">Route</MenuItem>
                 <MenuItem value="coverage">Coverage</MenuItem>
+                <MenuItem value="run">Run Concept</MenuItem>
               </Select>
             </FormControl>
 
@@ -315,6 +466,7 @@ export const VideosAdmin: React.FC = () => {
               onChange={(e) => setFormData({ ...formData, youtubeUrl: e.target.value })}
               fullWidth
               placeholder="https://www.youtube.com/watch?v=..."
+              helperText="Paste a valid YouTube video URL (regular video or Short)"
             />
 
             {/* Status */}
@@ -377,15 +529,17 @@ export const VideosAdmin: React.FC = () => {
                     </Box>
                   )}
                 >
-                  <MenuItem value="QB">QB</MenuItem>
-                  <MenuItem value="RB">RB</MenuItem>
-                  <MenuItem value="WR">WR</MenuItem>
-                  <MenuItem value="TE">TE</MenuItem>
-                  <MenuItem value="OL">OL</MenuItem>
-                  <MenuItem value="DL">DL</MenuItem>
-                  <MenuItem value="LB">LB</MenuItem>
-                  <MenuItem value="DB">DB</MenuItem>
-                  <MenuItem value="K/P">K/P</MenuItem>
+                  {positionTags.length === 0 ? (
+                    <MenuItem disabled>
+                      No positions available. Go to Admin {'>'} Video Tags to add them.
+                    </MenuItem>
+                  ) : (
+                    positionTags.map((position) => (
+                      <MenuItem key={position} value={position}>
+                        {position}
+                      </MenuItem>
+                    ))
+                  )}
                 </Select>
               </FormControl>
             )}
@@ -407,21 +561,17 @@ export const VideosAdmin: React.FC = () => {
                     </Box>
                   )}
                 >
-                  <MenuItem value="Slant">Slant</MenuItem>
-                  <MenuItem value="Out">Out</MenuItem>
-                  <MenuItem value="Curl">Curl</MenuItem>
-                  <MenuItem value="Post">Post</MenuItem>
-                  <MenuItem value="Wheel">Wheel</MenuItem>
-                  <MenuItem value="Dig">Dig</MenuItem>
-                  <MenuItem value="Corner">Corner</MenuItem>
-                  <MenuItem value="Comeback">Comeback</MenuItem>
-                  <MenuItem value="Screen">Screen</MenuItem>
-                  <MenuItem value="Go/Fade">Go/Fade</MenuItem>
-                  <MenuItem value="Hitch">Hitch</MenuItem>
-                  <MenuItem value="Cross">Cross</MenuItem>
-                  <MenuItem value="Drag">Drag</MenuItem>
-                  <MenuItem value="Seam">Seam</MenuItem>
-                  <MenuItem value="Flag">Flag</MenuItem>
+                  {routeTags.length === 0 ? (
+                    <MenuItem disabled>
+                      No routes available. Go to Admin {'>'} Video Tags to add them.
+                    </MenuItem>
+                  ) : (
+                    routeTags.map((route) => (
+                      <MenuItem key={route} value={route}>
+                        {route}
+                      </MenuItem>
+                    ))
+                  )}
                 </Select>
               </FormControl>
             )}
@@ -443,27 +593,58 @@ export const VideosAdmin: React.FC = () => {
                     </Box>
                   )}
                 >
-                  <MenuItem value="Cover 0">Cover 0</MenuItem>
-                  <MenuItem value="Cover 1">Cover 1</MenuItem>
-                  <MenuItem value="Cover 2">Cover 2</MenuItem>
-                  <MenuItem value="Cover 3">Cover 3</MenuItem>
-                  <MenuItem value="Cover 4">Cover 4</MenuItem>
-                  <MenuItem value="Cover 6">Cover 6</MenuItem>
-                  <MenuItem value="Quarters">Quarters</MenuItem>
-                  <MenuItem value="Palms">Palms</MenuItem>
-                  <MenuItem value="Tampa 2">Tampa 2</MenuItem>
-                  <MenuItem value="Man">Man</MenuItem>
-                  <MenuItem value="Zone">Zone</MenuItem>
-                  <MenuItem value="Match">Match</MenuItem>
+                  {coverageTags.length === 0 ? (
+                    <MenuItem disabled>
+                      No coverages available. Go to Admin {'>'} Video Tags to add them.
+                    </MenuItem>
+                  ) : (
+                    coverageTags.map((coverage) => (
+                      <MenuItem key={coverage} value={coverage}>
+                        {coverage}
+                      </MenuItem>
+                    ))
+                  )}
+                </Select>
+              </FormControl>
+            )}
+
+            {/* Run Concepts (for run type) */}
+            {formData.type === 'run' && (
+              <FormControl fullWidth>
+                <InputLabel>Run Concepts</InputLabel>
+                <Select
+                  multiple
+                  value={formData.runs}
+                  label="Run Concepts"
+                  onChange={handleMultiSelectChange('runs')}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {selected.map((value) => (
+                        <Chip key={value} label={value} size="small" />
+                      ))}
+                    </Box>
+                  )}
+                >
+                  {runTags.length === 0 ? (
+                    <MenuItem disabled>
+                      No run concepts available. Go to Admin {'>'} Video Tags to add them.
+                    </MenuItem>
+                  ) : (
+                    runTags.map((run) => (
+                      <MenuItem key={run} value={run}>
+                        {run}
+                      </MenuItem>
+                    ))
+                  )}
                 </Select>
               </FormControl>
             )}
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button onClick={handleSave} variant="contained">
-            {editingVideo ? 'Update' : 'Create'}
+          <Button onClick={handleCloseDialog} disabled={loading}>Cancel</Button>
+          <Button onClick={handleSave} variant="contained" disabled={loading}>
+            {loading ? <CircularProgress size={24} /> : (editingVideo ? 'Update' : 'Create')}
           </Button>
         </DialogActions>
       </Dialog>

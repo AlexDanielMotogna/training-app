@@ -1,0 +1,667 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ========================================
+// USERS & AUTHENTICATION
+// ========================================
+
+model User {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  email         String   @unique
+  passwordHash  String
+  name          String
+  role          String   // 'player' | 'coach'
+
+  // Player-specific fields
+  jerseyNumber  Int?
+  birthDate     String?  // ISO date string
+  age           Int?
+  weightKg      Float?
+  heightCm      Float?
+  position      String?  // 'RB' | 'WR' | 'LB' | etc.
+  sex           String?  // 'male' | 'female'
+  ageCategory   String?  // Player's age category (e.g., 'U13', 'U15', 'Seniors')
+
+  // Coach-specific fields
+  coachCategories String[] @default([]) // Categories this coach manages (e.g., ['U13', 'U15'])
+
+  // Contact info
+  phone         String?
+  instagram     String?
+  snapchat      String?
+  tiktok        String?
+  hudl          String?
+
+  // Privacy settings
+  metricsPublic Boolean  @default(true)
+
+  // Preferences
+  preferredLanguage String @default("de") // 'de' | 'en'
+
+  // AI settings
+  aiCoachEnabled Boolean @default(false)
+  aiApiKey       String?
+
+  // Profile images
+  avatarUrl      String?  // Cloudinary URL for profile picture
+  avatarPublicId String?  // Cloudinary public_id for deletion
+
+  // Password reset
+  resetToken     String?
+  resetTokenExpiry DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  sessionCreated    TrainingSession[]
+  attendanceVotes   AttendancePollVote[]
+}
+
+// ========================================
+// TRAINING SESSIONS (Online)
+// ========================================
+
+model TrainingSession {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  creatorId       String   @db.ObjectId
+  creatorName     String
+
+  sessionCategory String   // 'team' | 'private'
+  type            String   // 'gym' | 'outdoor' | 'coach-plan' | 'free-training'
+  title           String
+  location        String
+  address         String?
+  date            String   // ISO date
+  time            String   // HH:mm format
+  description     String?
+
+  attendees       Json     // Array of {userId, userName, status: RSVPStatus}
+  // checkIns field removed - attendance is now tracked via AttendancePoll votes
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  creator         User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  polls           AttendancePoll[]
+}
+
+// ========================================
+// ATTENDANCE POLLS (Online)
+// ========================================
+
+model AttendancePoll {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId   String   @db.ObjectId
+  sessionName String
+  sessionDate String
+  createdBy   String
+  createdAt   String
+  expiresAt   String
+  isActive    Boolean  @default(true)
+
+  session     TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  votes       AttendancePollVote[]
+}
+
+model AttendancePollVote {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  pollId       String   @db.ObjectId
+  userId       String   @db.ObjectId
+  userName     String
+  userPosition String?  // User's position (QB, RB, WR, etc.)
+  option       String   // 'training' | 'present' | 'absent'
+  timestamp    String
+
+  poll      AttendancePoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId]) // One vote per user per poll
+}
+
+// ========================================
+// VIDEOS (Online)
+// ========================================
+
+model Video {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String   @default("")
+  youtubeUrl  String
+  type        String   // 'position' | 'route' | 'coverage' | 'run'
+  status      String   @default("draft") // 'draft' | 'published'
+  level       String?  // 'intro' | 'intermediate' | 'advanced'
+  unit        String?  // 'Offense' | 'Defense' | 'Special Teams'
+
+  // Tags based on type
+  positions   String[] @default([])
+  routes      String[] @default([])
+  coverages   String[] @default([])
+  runs        String[] @default([])
+
+  // Metadata
+  createdBy   String   @db.ObjectId
+  order       Int      @default(0)
+  isPinned    Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type])
+  @@index([status])
+  @@index([createdBy])
+}
+
+// ========================================
+// VIDEO PROGRESS (Track player progress)
+// ========================================
+
+model VideoProgress {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String   @db.ObjectId
+  videoId       String   @db.ObjectId
+  lastTimestamp Int      // Last watched position in seconds
+  totalDuration Int      // Total video duration in seconds
+  percentWatched Int     // 0-100
+  completed     Boolean  @default(false)
+  lastWatchedAt DateTime @updatedAt
+
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, videoId])
+  @@index([userId])
+  @@index([videoId])
+}
+
+// ========================================
+// VIDEO TAGS (Dynamic tags for positions, routes, coverages)
+// ========================================
+
+model VideoTag {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  type      String   // 'position' | 'route' | 'coverage' | 'run'
+  name      String   // 'QB', 'Slant', 'Cover 2', 'Inside Zone'
+  order     Int      @default(0) // For custom ordering
+  isDefault Boolean  @default(false) // System defaults vs coach custom
+  createdBy String?  @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, name])
+  @@index([type, order])
+}
+
+// ========================================
+// TEAM SETTINGS (Online)
+// ========================================
+
+model TeamSettings {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  teamName       String
+  appName        String?
+  primaryColor   String
+  secondaryColor String
+  logoUrl        String?
+  faviconUrl     String?
+
+  // Season and team configuration
+  seasonPhase    String   @default("off-season") // 'off-season' | 'pre-season' | 'in-season'
+  teamLevel      String   @default("amateur") // 'amateur' | 'semi-pro' | 'pro' | 'youth' | 'recreational'
+  teamCategory   String   @default("principal") // 'juvenil' | 'principal' | 'reserves' | 'academy'
+
+  // Age categories configuration (SaaS-ready: each team defines their own)
+  // Example: ['U8', 'U10', 'U13', 'U15', 'U17', 'U19', 'Seniors']
+  // Basketball: ['U12', 'U14', 'U16', 'U18', 'Senior']
+  // Handball: ['Minis', 'Cadets', 'Juniors', 'Seniors']
+  allowedCategories Json @default("[]") // Array of category strings
+
+  // Optional AI API key for team-wide AI features
+  aiApiKey       String?
+
+  updatedBy      String?  @db.ObjectId // Coach who last updated
+  updatedAt      DateTime @updatedAt
+}
+
+// ========================================
+// POINTS SYSTEM CONFIGURATION (Online)
+// ========================================
+
+model PointsConfig {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  weeklyTarget  Int      @default(20)
+  maxDailyPoints Int?    @default(3)
+  categories    Json     // Array of PointCategory objects
+  colorScale    Json     // {low: string, medium: string, high: string}
+  updatedBy     String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ========================================
+// PLAYER WEEKLY POINTS (Leaderboard Data)
+// ========================================
+
+model PlayerWeeklyPoints {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @db.ObjectId
+  week           String   // ISO week format: "2025-W03"
+
+  // Point totals
+  totalPoints    Float    @default(0)
+  targetPoints   Int      @default(20)
+
+  // Activity tracking
+  workoutDays    Int      @default(0)
+  teamTrainingDays Int    @default(0)
+  coachWorkoutDays Int    @default(0)
+  personalWorkoutDays Int @default(0)
+
+  // Detailed breakdown
+  breakdown      Json     // Array of PointsBreakdown entries (per-workout details)
+
+  lastUpdated    DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@unique([userId, week])
+  @@index([week])
+  @@index([userId])
+}
+
+// ========================================
+// EXERCISE CATALOG (Could be synced to offline)
+// ========================================
+
+model ExerciseCategory {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  key       String   @unique  // Unique key (e.g., "strength", "speed", "cod")
+  nameEN    String   // English name
+  nameDE    String   // German translation
+  color     String   @default("#1976d2")  // Color for UI display
+  icon      String?  // Optional icon name for UI
+  active    Boolean  @default(true)  // Active/inactive flag
+  createdBy String?  @db.ObjectId  // Coach who created it (null for system categories)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Exercise {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  category      String   // References ExerciseCategory.key (e.g., "strength", "speed")
+  youtubeUrl    String?  // YouTube URL
+  positionTags  String[] // ['RB', 'WR', 'LB', etc.] - empty array means all positions
+  muscleGroups  String[] // ['legs', 'chest', 'back', 'shoulders', 'arms', 'core', 'full-body']
+  isGlobal      Boolean  @default(true)  // Global exercises vs custom
+  createdBy     String?  @db.ObjectId    // Coach who created it (null for system exercises)
+  isCustom      Boolean  @default(false) // Custom exercise flag
+  descriptionEN String?
+  descriptionDE String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([name])
+}
+
+// ========================================
+// TRAINING TEMPLATES (Coach Plans)
+// ========================================
+
+model TrainingTemplate {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  name             String
+  trainingType     String   // TrainingType ID
+  position         String?  // Legacy: Single position (backwards compatibility)
+  positions        String[] @default([]) // Multiple positions ['RB', 'WR', etc.]
+  season           String   @default("off-season") // 'in-season' | 'off-season' | 'pre-season'
+  durationWeeks    Int      @default(8)
+  frequencyPerWeek String   @default("2-3")
+  weeklyNotes      String?
+  blocks           Json     // Array of TemplateBlock
+  isActive         Boolean  @default(true)
+  createdBy        String   @db.ObjectId
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  assignments      TrainingAssignment[]
+}
+
+// ========================================
+// TRAINING ASSIGNMENTS (Coach → Player)
+// ========================================
+
+model TrainingAssignment {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  templateId  String   @db.ObjectId
+  playerIds   String[] @db.ObjectId  // Multiple players can be assigned
+  assignedBy  String   @db.ObjectId  // Coach ID
+  startDate   String   // ISO date
+  endDate     String?  // ISO date - null means ongoing
+  active      Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  template    TrainingTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+}
+
+// ========================================
+// WORKOUT LOGS (Player Training Logs)
+// ========================================
+
+model WorkoutLog {
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId               String   @db.ObjectId
+  userName             String?
+  date                 String   // ISO date when workout was completed
+  entries              Json     // Array of WorkoutEntry with setData
+  notes                String?
+  source               String   // 'coach' | 'player'
+  planTemplateId       String?  // Reference to template/plan used
+  planName             String?  // Name of the plan/block
+  duration             Int?     // Duration in minutes
+  planMetadata         Json?    // {totalExercises, totalTargetSets}
+  completionPercentage Int?     // 0-100 completion percentage
+
+  createdAt            String   // ISO datetime when log was created
+  syncedAt             DateTime @default(now()) // When synced to backend
+
+  @@index([userId, date])
+}
+
+// ========================================
+// USER PLANS (Player-Created Workout Plans)
+// ========================================
+
+model UserPlan {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String   @db.ObjectId
+  name          String
+  trainingType  String   // 'strength_conditioning' | 'sprints_speed' | etc.
+  exercises     Json     // Array of PlanExercise objects
+  notes         String?
+  timesCompleted Int     @default(0)
+
+  createdAt     String   // ISO datetime
+  updatedAt     String   // ISO datetime
+  syncedAt      DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// ========================================
+// WORKOUT REPORTS (AI-Generated Analysis)
+// ========================================
+
+model WorkoutReport {
+  id                      String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId                  String   @db.ObjectId
+  workoutTitle            String?  @default("")
+  date                    String?  @default("")  // ISO date string (YYYY-MM-DD)
+  duration                Int?     @default(0)   // Duration in minutes
+  source                  String?  @default("player")  // 'coach' | 'player'
+
+  // Performance Scores (0-100)
+  intensityScore          Int?     @default(50)
+  workCapacityScore       Int?     @default(50)
+  athleticQualityScore    Int?     @default(50)
+  positionRelevanceScore  Int?     @default(50)
+
+  // Breakdown
+  totalVolume             Int?     @default(0)    // kg
+  totalDistance           Float?                  // km (for cardio workouts)
+  avgRPE                  Float?   @default(5)    // 1-10
+  setsCompleted           Int?     @default(0)
+  setsPlanned             Int?     @default(0)
+
+  // Athletic focus (percentages)
+  powerWork               Int?     @default(0)
+  strengthWork            Int?     @default(0)
+  speedWork               Int?     @default(0)
+
+  // Highlights (auto-generated)
+  strengths               Json?    @default("[]")  // Array of strings
+  warnings                Json?    @default("[]")  // Array of strings
+
+  // Progress comparison
+  volumeChange            Int?                     // % vs last week
+  intensityChange         Int?                     // % vs last week
+
+  // Recovery & Validation
+  recoveryDemand          String?  @default("medium")  // 'low' | 'medium' | 'high' | 'very-high' | 'insufficient'
+  recommendedRestHours    Int?     @default(24)
+  sessionValid            Boolean? @default(true)
+
+  // AI Insights
+  coachInsights           String?  @default("")
+  keyInsights             Json?    @default("[]")  // Array of strings (legacy)
+  recommendations         Json?    @default("[]")  // Array of strings (legacy)
+  personalObservations    String?  // Player's notes
+
+  // Metadata
+  aiGenerated             Boolean? @default(false)
+  workoutEntries          Json?    @default("[]")  // Complete workout data for reference
+
+  createdAt               String?  @default("")  // ISO datetime
+  syncedAt                DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// ========================================
+// TRAINING TYPES (Training Categories)
+// ========================================
+
+model TrainingType {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  key       String   @unique // 'strength_conditioning' | 'sprints_speed' | 'cb_drills'
+  nameEN    String
+  nameDE    String
+  season    String   // 'in-season' | 'off-season' | 'pre-season'
+  active    Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ========================================
+// BLOCK INFO (Exercise Block Descriptions)
+// ========================================
+
+model BlockInfo {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  blockName     String
+  trainingType  String   // 'strength_conditioning' | 'sprints_speed'
+  infoText_en   String
+  infoText_de   String
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([blockName, trainingType])
+}
+
+// ========================================
+// NOTIFICATIONS (In-App)
+// ========================================
+
+model Notification {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId  // Recipient
+  type        String   // 'new_plan' | 'plan_updated' | 'new_session' | 'private_session' | 'attendance_poll'
+  title       String
+  message     String
+  read        Boolean  @default(false)
+  actionUrl   String?  // Optional URL to navigate to
+
+  // Optional metadata
+  referenceId String?  // ID of related entity (template, session, poll, etc.)
+
+  createdAt   DateTime @default(now())
+
+  @@index([userId, read, createdAt])
+}
+
+// ========================================
+// TEST RESULTS (Strength, Speed, Power, Agility)
+// ========================================
+
+model TestResult {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+
+  // Test type: 'strength' | 'speed' | 'power' | 'agility'
+  testType  String
+
+  // Test date
+  dateISO   String   // ISO date string (YYYY-MM-DD)
+
+  // Test data stored as JSON (different structure per test type)
+  // For strength: { byTest: [], bySegment: {}, strengthIndex: number, label: string, tier: string }
+  // For speed: { byTest: [], speedScore: number, label: string, tier: string }
+  // For power: { byTest: [], powerScore: number, label: string, tier: string }
+  // For agility: { byTest: [], agilityScore: number, label: string, tier: string }
+  testData  Json
+
+  // Overall score (0-100) for quick filtering/sorting
+  score     Int
+
+  // Tier: 'ELITE' | 'ADVANCED' | 'INTERMEDIATE' | 'BEGINNER'
+  tier      String
+
+  // Whether this is the current/latest test for this user+type
+  isCurrent Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, testType, isCurrent])
+  @@index([userId, dateISO])
+}
+
+// ========================================
+// DRILLS (Training drills library)
+// ========================================
+
+model Drill {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  category      String   // References DrillCategory.key (e.g., "athletik", "fundamentals")
+  description   String
+  coachingPoints String
+
+  // Personnel requirements
+  players       Int      @default(0)  // Number of players needed
+  coaches       Int      @default(0)  // Number of coaches needed
+  dummies       Int      @default(0)  // Number of dummies needed
+
+  // Equipment needed (stored as JSON array)
+  // [{equipmentId: string, quantity: number}]
+  equipment     Json     @default("[]")
+
+  // Resources
+  sketchUrl     String?  // Cloudinary URL for drill diagram/sketch
+  sketchPublicId String? // Cloudinary public_id for deletion
+  videoUrl      String?  // YouTube video URL
+  imageUrl      String?  // Cloudinary URL for drill thumbnail image
+  imagePublicId String?  // Cloudinary public_id for image deletion
+
+  // Organization
+  difficulty    String   // 'basic' | 'advanced' | 'complex'
+  trainingContext String? // 'Warm-up' | 'Individual' | 'Team Period' | etc.
+
+  // Metadata
+  createdBy     String   @db.ObjectId
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([category, difficulty])
+  @@index([createdBy])
+}
+
+// ========================================
+// EQUIPMENT (Equipment catalog)
+// ========================================
+
+model Equipment {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String   @unique
+  quantity    Int?     // Total quantity available (optional)
+
+  // Image
+  imageUrl    String?  // Cloudinary URL for equipment photo
+  imagePublicId String? // Cloudinary public_id for deletion
+
+  // Metadata
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ========================================
+// DRILL CATEGORIES (Manageable categories)
+// ========================================
+
+model DrillCategory {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  key       String   @unique  // Unique key (e.g., "athletik", "fundamentals", "offense")
+  name      String   @unique  // Category name (e.g., "Offense", "Defense", "Team")
+  nameDE    String?  // German translation
+  color     String   @default("#1976d2")  // Color for UI display
+  createdBy String   @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ========================================
+// DRILL TRAINING SESSIONS
+// ========================================
+
+model DrillTrainingSession {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String   // Session name (e.g., "Week 3 - Offense Drills")
+  date      String   // Date of the session (YYYY-MM-DD format)
+  drills    String[] // Array of drill IDs
+  notes     String?  // Optional notes for the session
+  createdBy String   @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdBy])
+  @@index([date])
+}
+
+// Match/Game model for Spielplan (Season Schedule)
+model Match {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  spielnummer  String   @unique // Game number (e.g., "25201")
+  homeTeam     String   // Home team name
+  awayTeam     String   // Away team name
+  date         String   // Date of match (YYYY-MM-DD format)
+  kickoff      String   // Kickoff time (HH:mm format)
+  spielort     String   // Location/Stadium
+  week         Int      // Week number (1-8)
+  weekLabel    String   // Week label (e.g., "Woche 1 - 29./30.März")
+  conference   String   // Conference (A, B, C, D)
+  homeScore    Int?     // Home team score (null if not played yet)
+  awayScore    Int?     // Away team score (null if not played yet)
+  isRelegation Boolean  @default(false) // Relegation game
+  isSemifinal  Boolean  @default(false) // Semifinal
+  isIronBowl   Boolean  @default(false) // Iron Bowl (Championship)
+  createdBy    String   @db.ObjectId
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([date])
+  @@index([week])
+  @@index([conference])
+}

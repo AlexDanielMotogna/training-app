@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import { isOnline } from '../../services/online';
+import React, { useState, useEffect } from 'react';
+import { useI18n } from '../../i18n/I18nProvider';
 import {
   Dialog,
   DialogTitle,
@@ -15,12 +17,16 @@ import {
   Tabs,
   Tab,
   IconButton,
+  Button,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
+import AddIcon from '@mui/icons-material/Add';
 import { globalCatalog } from '../../services/catalog';
-import type { Exercise, ExerciseCategory } from '../../types/exercise';
+import { exerciseService } from '../../services/api';
+import type { Exercise, ExerciseCategory, MuscleGroup } from '../../types/exercise';
 import { sanitizeYouTubeUrl } from '../../services/yt';
+import { ExerciseFormDialog } from '../exercise/ExerciseFormDialog';
 
 interface ExerciseSelectorProps {
   open: boolean;
@@ -33,9 +39,13 @@ export const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
   onClose,
   onSelect,
 }) => {
+  const { t } = useI18n();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ExerciseCategory | 'All'>('All');
+  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<MuscleGroup | 'All'>('All');
+  const [exercises, setExercises] = useState<Exercise[]>([]);
   const [previewExercise, setPreviewExercise] = useState<Exercise | null>(null);
+  const [showAddExerciseDialog, setShowAddExerciseDialog] = useState(false);
 
   const categories: Array<ExerciseCategory | 'All'> = [
     'All',
@@ -47,23 +57,99 @@ export const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
     'Conditioning',
   ];
 
-  // Filter exercises
-  const filteredExercises = globalCatalog.filter(exercise => {
+  const muscleGroups: Array<MuscleGroup | 'All'> = [
+    'All',
+    'legs',
+    'chest',
+    'back',
+    'shoulders',
+    'arms',
+    'core',
+    'full-body',
+  ];
+
+  // Force refresh exercises from backend
+  const forceRefresh = async () => {
+    console.log('🔄 Force refreshing exercises from backend...');
+    try {
+      const backendExercises = await exerciseService.getAll() as Exercise[];
+      console.log('📥 Received from backend:', backendExercises.length, 'exercises');
+
+      setExercises(backendExercises);
+      console.log(`✅ Loaded ${backendExercises.length} exercises from backend`);
+    } catch (error) {
+      console.error('❌ Failed to refresh exercises:', error);
+    }
+  };
+
+  // Load exercises from backend when dialog opens
+  useEffect(() => {
+    const loadExercises = async () => {
+      console.log('🔍 ExerciseSelector - open:', open, 'current exercises:', exercises.length);
+
+      if (!open) return;
+
+      try {
+        // Always fetch from backend
+        console.log('🔄 Fetching exercises from backend...');
+        const backendExercises = await exerciseService.getAll() as Exercise[];
+        console.log('📥 Received from backend:', backendExercises.length, 'exercises');
+        console.log('📥 Sample exercise with muscle groups:', backendExercises[0]);
+        console.log('📥 Exercises with legs:', backendExercises.filter(e => e.muscleGroups?.includes('legs')).length);
+
+        setExercises(backendExercises);
+        console.log(`✅ Loaded ${backendExercises.length} exercises from backend`);
+      } catch (error) {
+        console.error('❌ Failed to load exercises:', error);
+        // Fallback to hardcoded catalog
+        console.warn('⚠️ Using fallback catalog due to error (${globalCatalog.length} exercises)');
+        setExercises(globalCatalog);
+      }
+    };
+
+    loadExercises();
+  }, [open]);
+
+  // Filter exercises with debug logging
+  console.log('🔍 Filter State:', {
+    totalExercises: exercises.length,
+    selectedCategory,
+    selectedMuscleGroup,
+    searchTerm,
+    sampleExercise: exercises[0],
+  });
+
+  const filteredExercises = exercises.filter(exercise => {
     const matchesSearch = exercise.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || exercise.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const matchesMuscleGroup = selectedMuscleGroup === 'All' ||
+      (exercise.muscleGroups && exercise.muscleGroups.includes(selectedMuscleGroup));
+
+    return matchesSearch && matchesCategory && matchesMuscleGroup;
+  });
+
+  console.log('✅ Filtered Result:', {
+    filteredCount: filteredExercises.length,
+    selectedMuscleGroup,
   });
 
   const handleSelect = (exercise: Exercise) => {
     onSelect(exercise);
     setSearchTerm('');
     setSelectedCategory('All');
+    setSelectedMuscleGroup('All');
     setPreviewExercise(null);
   };
 
   const handleVideoClick = (exercise: Exercise, event: React.MouseEvent) => {
     event.stopPropagation();
     setPreviewExercise(exercise);
+  };
+
+  const handleExerciseAdded = async () => {
+    // Reload exercises after adding a new one
+    setShowAddExerciseDialog(false);
+    await forceRefresh();
   };
 
   const getEmbedUrl = (url: string | undefined): string | null => {
@@ -76,8 +162,19 @@ export const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Select Exercise</DialogTitle>
+    <>
+      <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Select Exercise
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={() => setShowAddExerciseDialog(true)}
+            size="small"
+          >
+            Add New
+          </Button>
+        </DialogTitle>
       <DialogContent>
         {/* Video Preview */}
         {previewExercise && previewExercise.youtubeUrl && (
@@ -140,6 +237,23 @@ export const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
           ))}
         </Tabs>
 
+        {/* Muscle Group Tabs */}
+        <Tabs
+          value={selectedMuscleGroup}
+          onChange={(_, value) => setSelectedMuscleGroup(value)}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+        >
+          {muscleGroups.map(group => (
+            <Tab
+              key={group}
+              label={group === 'All' ? t('muscleGroup.all') : t(`muscleGroup.${group}` as any)}
+              value={group}
+            />
+          ))}
+        </Tabs>
+
         {/* Exercise List */}
         {filteredExercises.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -149,49 +263,99 @@ export const ExerciseSelector: React.FC<ExerciseSelectorProps> = ({
           </Box>
         ) : (
           <List sx={{ maxHeight: 400, overflow: 'auto' }}>
-            {filteredExercises.map((exercise) => (
-              <ListItem
-                key={exercise.id}
-                disablePadding
-                secondaryAction={
-                  exercise.youtubeUrl ? (
-                    <IconButton
-                      edge="end"
-                      aria-label="watch video"
-                      onClick={(e) => handleVideoClick(exercise, e)}
-                      size="small"
-                      color="primary"
-                    >
-                      <PlayCircleOutlineIcon />
-                    </IconButton>
-                  ) : null
-                }
-              >
-                <ListItemButton onClick={() => handleSelect(exercise)}>
-                  <ListItemText
-                    primary={exercise.name}
-                    secondary={
-                      <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, alignItems: 'center' }}>
-                        <Chip label={exercise.category} size="small" />
-                        <Chip label={exercise.intensity} size="small" color="secondary" />
-                        {exercise.youtubeUrl && (
-                          <Chip
-                            icon={<PlayCircleOutlineIcon sx={{ fontSize: '0.9rem' }} />}
-                            label="Video"
-                            size="small"
-                            variant="outlined"
-                            color="primary"
-                          />
-                        )}
-                      </Box>
-                    }
-                  />
-                </ListItemButton>
-              </ListItem>
-            ))}
+            {filteredExercises.map((exercise) => {
+              // Extract YouTube video ID for thumbnail
+              const getYouTubeVideoId = (url: string) => {
+                if (!url) return null;
+                const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?]+)/);
+                return match ? match[1] : null;
+              };
+
+              const videoId = getYouTubeVideoId(exercise.youtubeUrl || '');
+              const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null;
+
+              return (
+                <ListItem
+                  key={exercise.id}
+                  disablePadding
+                  sx={{
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    '&:last-child': { borderBottom: 'none' }
+                  }}
+                >
+                  <ListItemButton
+                    onClick={() => handleSelect(exercise)}
+                    sx={{
+                      py: 1.5,
+                      display: 'flex',
+                      gap: 2,
+                      alignItems: 'flex-start'
+                    }}
+                  >
+                    {/* Thumbnail */}
+                    {thumbnailUrl && (
+                      <Box
+                        component="img"
+                        src={thumbnailUrl}
+                        alt={exercise.name}
+                        sx={{
+                          width: 80,
+                          height: 45,
+                          objectFit: 'cover',
+                          borderRadius: 1,
+                          flexShrink: 0,
+                          cursor: 'pointer',
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          '&:hover': {
+                            opacity: 0.8,
+                          }
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleVideoClick(exercise, e);
+                        }}
+                        onError={(e) => {
+                          // Hide thumbnail if it fails to load
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    )}
+
+                    {/* Exercise Info */}
+                    <ListItemText
+                      primary={exercise.name}
+                      secondary={
+                        <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <Chip label={exercise.category} size="small" />
+                          {exercise.muscleGroups && exercise.muscleGroups.map((group) => (
+                            <Chip
+                              key={group}
+                              label={t(`muscleGroup.${group}` as any)}
+                              size="small"
+                              variant="outlined"
+                              color="secondary"
+                            />
+                          ))}
+                        </Box>
+                      }
+                    />
+                  </ListItemButton>
+                </ListItem>
+              );
+            })}
           </List>
         )}
       </DialogContent>
     </Dialog>
+
+    {/* Add Exercise Dialog */}
+    <ExerciseFormDialog
+      open={showAddExerciseDialog}
+      onClose={() => setShowAddExerciseDialog(false)}
+      onSuccess={handleExerciseAdded}
+    />
+  </>
   );
 };

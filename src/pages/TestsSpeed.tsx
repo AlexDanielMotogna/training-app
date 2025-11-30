@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Button } from '@mui/material';
 import { SpeedWizard } from '../components/tests/SpeedWizard';
 import { SpeedSummary } from '../components/tests/SpeedSummary';
@@ -6,7 +6,8 @@ import { useI18n } from '../i18n/I18nProvider';
 import type { SpeedResult, SpeedSummary as SpeedSummaryType, Tier, SpeedTestKey } from '../types/testing';
 import { speedScore, speedIndex, labelFromSpeedIndex } from '../services/speedCalc';
 import { getSpeedBenchmarks } from '../services/speedBenchmarks';
-import { getUser } from '../services/mock';
+import { getUser } from '../services/userProfile';
+import { saveTestResult, syncTestResultsFromBackend } from '../services/testResults';
 
 export const TestsSpeed: React.FC = () => {
   const { t } = useI18n();
@@ -17,12 +18,17 @@ export const TestsSpeed: React.FC = () => {
   const user = getUser()!;
   const position = user.position;
 
+  // Sync test results from backend on mount
+  useEffect(() => {
+    syncTestResultsFromBackend();
+  }, []);
+
   const handleWizardFinish = (results: SpeedResult[]) => {
     setTestResults(results);
-    computeSummary(results, selectedTier);
+    computeSummary(results, selectedTier, true); // Save on wizard finish
   };
 
-  const computeSummary = (results: SpeedResult[], tier: Tier) => {
+  const computeSummary = (results: SpeedResult[], tier: Tier, shouldSave: boolean = false) => {
     const benchmarks = getSpeedBenchmarks(position);
     const scores: Record<SpeedTestKey, number> = {} as any;
 
@@ -49,14 +55,10 @@ export const TestsSpeed: React.FC = () => {
 
     setSummary(newSummary);
 
-    // Save previous test before overwriting
-    const previousTest = localStorage.getItem('lastSpeedTest');
-    if (previousTest) {
-      localStorage.setItem('lastSpeedTest_previous', previousTest);
+    // Only save to backend when explicitly requested (not on tier change)
+    if (shouldSave) {
+      saveTestResult('speed', newSummary, index, label);
     }
-
-    // Save to localStorage
-    localStorage.setItem('lastSpeedTest', JSON.stringify(newSummary));
   };
 
   const handleTierChange = (tier: Tier) => {

@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { Box, Typography, Alert } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Box, Typography, Button } from '@mui/material';
 import { useI18n } from '../i18n/I18nProvider';
 import { StrengthWizard } from '../components/tests/StrengthWizard';
 import { StrengthSummary as StrengthSummaryComponent } from '../components/tests/StrengthSummary';
-import { getUser } from '../services/mock';
+import { getUser } from '../services/userProfile';
 import { getBenchmarks } from '../services/benchmarks';
 import {
   getSegmentMetric,
@@ -11,6 +11,7 @@ import {
   strengthIndex,
   labelFromIndex,
 } from '../services/strengthCalc';
+import { saveTestResult, getTestResultLocal, syncTestResultsFromBackend } from '../services/testResults';
 import type {
   StrengthResult,
   StrengthSummary,
@@ -27,7 +28,11 @@ export const TestsStrength: React.FC = () => {
   const [testResults, setTestResults] = useState<StrengthResult[] | null>(null);
   const [selectedTier, setSelectedTier] = useState<Tier>('semi');
   const [summary, setSummary] = useState<StrengthSummary | null>(null);
-  const [saved, setSaved] = useState(false);
+
+  // Sync test results from backend on mount
+  useEffect(() => {
+    syncTestResultsFromBackend();
+  }, []);
 
   if (!user) {
     return (
@@ -43,10 +48,10 @@ export const TestsStrength: React.FC = () => {
 
   const handleWizardFinish = (results: StrengthResult[]) => {
     setTestResults(results);
-    computeSummary(results, selectedTier);
+    computeSummary(results, selectedTier, true); // Save on wizard finish
   };
 
-  const computeSummary = (results: StrengthResult[], tier: Tier) => {
+  const computeSummary = (results: StrengthResult[], tier: Tier, shouldSave: boolean = false) => {
     const benchmarks = getBenchmarks(position, sex);
 
     const bySegment: Record<Segment, { score: number; detail: string }> = {} as any;
@@ -91,6 +96,11 @@ export const TestsStrength: React.FC = () => {
     };
 
     setSummary(newSummary);
+
+    // Only save to backend when explicitly requested (not on tier change)
+    if (shouldSave) {
+      saveTestResult('strength', newSummary, index, label);
+    }
   };
 
   const handleTierChange = (tier: Tier) => {
@@ -100,19 +110,9 @@ export const TestsStrength: React.FC = () => {
     }
   };
 
-  const handleSave = () => {
-    if (summary) {
-      // Save previous test before overwriting
-      const previousTest = localStorage.getItem('lastStrengthTest');
-      if (previousTest) {
-        localStorage.setItem('lastStrengthTest_previous', previousTest);
-      }
-
-      // Save new test
-      localStorage.setItem('lastStrengthTest', JSON.stringify(summary));
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    }
+  const handleReset = () => {
+    setTestResults(null);
+    setSummary(null);
   };
 
   return (
@@ -121,20 +121,20 @@ export const TestsStrength: React.FC = () => {
         {t('tests.strengthSolo')}
       </Typography>
 
-      {saved && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {t('tests.resultsSaved')}
-        </Alert>
-      )}
-
       {!summary ? (
         <StrengthWizard bodyWeightKg={bodyWeightKg} onFinish={handleWizardFinish} />
       ) : (
-        <StrengthSummaryComponent
-          summary={summary}
-          onTierChange={handleTierChange}
-          onSave={handleSave}
-        />
+        <>
+          <StrengthSummaryComponent
+            summary={summary}
+            onTierChange={handleTierChange}
+          />
+          <Box sx={{ mt: 3, textAlign: 'center' }}>
+            <Button variant="outlined" onClick={handleReset}>
+              {t('tests.retake')}
+            </Button>
+          </Box>
+        </>
       )}
     </Box>
   );

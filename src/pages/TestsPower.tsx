@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Button } from '@mui/material';
 import { PowerWizard } from '../components/tests/PowerWizard';
 import { PowerSummary } from '../components/tests/PowerSummary';
@@ -6,7 +6,8 @@ import { useI18n } from '../i18n/I18nProvider';
 import type { PowerResult, PowerSummary as PowerSummaryType, Tier, PowerTestKey } from '../types/testing';
 import { powerScore, powerIndex, labelFromPowerIndex } from '../services/powerCalc';
 import { getPowerBenchmarks } from '../services/powerBenchmarks';
-import { getUser } from '../services/mock';
+import { getUser } from '../services/userProfile';
+import { saveTestResult, syncTestResultsFromBackend } from '../services/testResults';
 
 export const TestsPower: React.FC = () => {
   const { t } = useI18n();
@@ -17,12 +18,17 @@ export const TestsPower: React.FC = () => {
   const user = getUser()!;
   const position = user.position;
 
+  // Sync test results from backend on mount
+  useEffect(() => {
+    syncTestResultsFromBackend();
+  }, []);
+
   const handleWizardFinish = (results: PowerResult[]) => {
     setTestResults(results);
-    computeSummary(results, selectedTier);
+    computeSummary(results, selectedTier, true); // Save on wizard finish
   };
 
-  const computeSummary = (results: PowerResult[], tier: Tier) => {
+  const computeSummary = (results: PowerResult[], tier: Tier, shouldSave: boolean = false) => {
     const benchmarks = getPowerBenchmarks(position);
     const scores: Record<PowerTestKey, number> = {} as any;
 
@@ -57,14 +63,10 @@ export const TestsPower: React.FC = () => {
 
     setSummary(newSummary);
 
-    // Save previous test before overwriting
-    const previousTest = localStorage.getItem('lastPowerTest');
-    if (previousTest) {
-      localStorage.setItem('lastPowerTest_previous', previousTest);
+    // Only save to backend when explicitly requested (not on tier change)
+    if (shouldSave) {
+      saveTestResult('power', newSummary, index, label);
     }
-
-    // Save to localStorage
-    localStorage.setItem('lastPowerTest', JSON.stringify(newSummary));
   };
 
   const handleTierChange = (tier: Tier) => {

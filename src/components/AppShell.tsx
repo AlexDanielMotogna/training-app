@@ -12,20 +12,27 @@ import {
   ListItemIcon,
   ListItemText,
   Container,
+  Collapse,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import PersonIcon from '@mui/icons-material/Person';
 import LeaderboardIcon from '@mui/icons-material/Leaderboard';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import SportsIcon from '@mui/icons-material/Sports';
 import DescriptionIcon from '@mui/icons-material/Description';
 import LogoutIcon from '@mui/icons-material/Logout';
 import OndemandVideoIcon from '@mui/icons-material/OndemandVideo';
 import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 import GroupIcon from '@mui/icons-material/Group';
 import GroupsIcon from '@mui/icons-material/Groups';
+import SettingsIcon from '@mui/icons-material/Settings';
+import SportsFootballIcon from '@mui/icons-material/SportsFootball';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useI18n } from '../i18n/I18nProvider';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -33,12 +40,13 @@ import { NotificationBell } from './NotificationBell';
 import {
   logout,
   getUser,
-  getMockNotifications,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
 } from '../services/mock';
+import { notificationService } from '../services/api';
 import type { Notification } from '../types/notification';
 import RhinosLogo from '../assets/imgs/USR_Allgemein_Quard_Transparent.png';
+import { getTeamBrandingAsync } from '../services/teamSettings';
+import type { TeamBranding } from '../types/teamSettings';
+import { toastService } from '../services/toast';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -50,15 +58,48 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+  const [branding, setBranding] = useState<TeamBranding | null>(null);
   const user = getUser();
 
+  // Load team branding from database
   useEffect(() => {
-    // Load notifications
-    setNotifications(getMockNotifications());
+    const loadBranding = async () => {
+      const brandingData = await getTeamBrandingAsync();
+      setBranding(brandingData);
+    };
+    loadBranding();
+  }, []);
+
+  useEffect(() => {
+    // Load notifications from backend
+    const loadNotifications = async () => {
+      try {
+        const backendNotifications = await notificationService.getAll();
+
+        // Convert backend format (createdAt as string) to frontend format (timestamp as Date)
+        const formattedNotifications = backendNotifications.map((n: any) => ({
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          timestamp: new Date(n.createdAt),
+          read: n.read,
+          actionUrl: n.actionUrl,
+        }));
+
+        setNotifications(formattedNotifications);
+        console.log(`[NOTIFICATIONS] Loaded ${formattedNotifications.length} notifications`);
+      } catch (error) {
+        console.error('[NOTIFICATIONS] Failed to load notifications:', error);
+      }
+    };
+
+    loadNotifications();
 
     // Poll for new notifications every 30 seconds
     const interval = setInterval(() => {
-      setNotifications(getMockNotifications());
+      loadNotifications();
     }, 30000);
 
     return () => clearInterval(interval);
@@ -66,21 +107,23 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
   const menuItems = [
     { key: 'myTraining', label: t('nav.myTraining'), icon: <FitnessCenterIcon />, path: '/training', showForAll: true },
-    { key: 'myCalendar', label: 'My Calendar', icon: <CalendarMonthIcon />, path: '/stats', showForAll: true },
+    { key: 'myCalendar', label: t('nav.myCalendar'), icon: <CalendarMonthIcon />, path: '/stats', showForAll: true },
     { key: 'tests', label: t('nav.tests'), icon: <AssessmentIcon />, path: '/tests', showForAll: true },
     { key: 'profile', label: t('nav.profile'), icon: <PersonIcon />, path: '/profile', showForAll: true },
     { key: 'team', label: t('nav.team'), icon: <GroupIcon />, path: '/team', showForAll: true },
+    { key: 'spielplan', label: t('nav.spielplan'), icon: <CalendarTodayIcon />, path: '/spielplan', showForAll: true },
     { key: 'trainingSessions', label: t('nav.trainingSessions'), icon: <GroupsIcon />, path: '/training-sessions', showForAll: true },
+    { key: 'drillbook', label: t('nav.drillbook'), icon: <SportsFootballIcon />, path: '/drillbook', showForAll: true },
     { key: 'leaderboard', label: t('nav.leaderboard'), icon: <LeaderboardIcon />, path: '/leaderboard', showForAll: true },
     { key: 'videos', label: t('nav.videos'), icon: <OndemandVideoIcon />, path: '/videos', showForAll: true },
-    { key: 'reports', label: t('nav.reports'), icon: <DescriptionIcon />, path: '/reports', showForAll: false, coachOnly: true },
-    { key: 'videosAdmin', label: t('nav.videosAdmin'), icon: <VideoLibraryIcon />, path: '/videos-admin', showForAll: false, coachOnly: true },
-    { key: 'admin', label: t('nav.admin'), icon: <AdminPanelSettingsIcon />, path: '/admin', showForAll: false, coachOnly: true },
   ];
 
-  const visibleMenuItems = menuItems.filter(item =>
-    item.showForAll || (item.coachOnly && user?.role === 'coach')
-  );
+  const adminMenuItems = [
+    { key: 'admin', label: t('nav.coachPanel'), icon: <SportsIcon />, path: '/admin', description: t('nav.coachPanelDesc') },
+    { key: 'drillSessionsManage', label: t('nav.manageDrillSessions'), icon: <SportsFootballIcon />, path: '/drill-sessions-manage' },
+    { key: 'reports', label: t('nav.reports'), icon: <DescriptionIcon />, path: '/reports' },
+    { key: 'configuration', label: t('nav.configuration'), icon: <SettingsIcon />, path: '/configuration' },
+  ];
 
   const handleNavigation = (path: string) => {
     // Close drawer immediately for better UX
@@ -93,18 +136,38 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
   const handleLogout = () => {
     setDrawerOpen(false);
+    // Clear all user data
     logout();
-    navigate('/');
+    toastService.logoutSuccess();
+    // Force immediate navigation to login page
+    // Use replace to prevent going back to authenticated pages
+    navigate('/', { replace: true });
   };
 
-  const handleMarkAsRead = (id: string) => {
-    markNotificationAsRead(id);
-    setNotifications(getMockNotifications());
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      await notificationService.markAsRead(id);
+
+      // Update local state optimistically
+      setNotifications(prev =>
+        prev.map(n => (n.id === id ? { ...n, read: true } : n))
+      );
+    } catch (error) {
+      console.error('[NOTIFICATIONS] Failed to mark notification as read:', error);
+    }
   };
 
-  const handleMarkAllAsRead = () => {
-    markAllNotificationsAsRead();
-    setNotifications(getMockNotifications());
+  const handleMarkAllAsRead = async () => {
+    try {
+      await notificationService.markAllAsRead();
+
+      // Update local state optimistically
+      setNotifications(prev =>
+        prev.map(n => ({ ...n, read: true }))
+      );
+    } catch (error) {
+      console.error('[NOTIFICATIONS] Failed to mark all notifications as read:', error);
+    }
   };
 
   const handleNotificationClick = (notification: Notification) => {
@@ -173,8 +236,6 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
         <Box
           sx={{ width: 250 }}
           role="presentation"
-          onClick={() => setDrawerOpen(false)}
-          onKeyDown={() => setDrawerOpen(false)}
         >
           <Box
             sx={{
@@ -186,15 +247,15 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
               <Box
                 component="img"
-                src={RhinosLogo}
-                alt="Rhinos Logo"
+                src={branding?.logoUrl || RhinosLogo}
+                alt={`${branding?.appName || 'App'} Logo`}
                 sx={{
                   width: 40,
                   height: 40,
                   objectFit: 'contain',
                 }}
               />
-              <Typography variant="h6">{t('app.title')}</Typography>
+              <Typography variant="h6">{branding?.appName || t('app.title')}</Typography>
             </Box>
             {user && (
               <Box sx={{ pl: 0.5 }}>
@@ -209,7 +270,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
           </Box>
 
           <List>
-            {visibleMenuItems.map((item) => (
+            {menuItems.map((item) => (
               <ListItem key={item.key} disablePadding>
                 <ListItemButton
                   selected={location.pathname === item.path}
@@ -222,6 +283,42 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
                 </ListItemButton>
               </ListItem>
             ))}
+
+            {/* Admin Menu (Coach Only) */}
+            {user?.role === 'coach' && (
+              <>
+                <ListItem disablePadding>
+                  <ListItemButton onClick={(e) => {
+                    e.stopPropagation();
+                    setAdminMenuOpen(!adminMenuOpen);
+                  }}>
+                    <ListItemIcon>
+                      <AdminPanelSettingsIcon />
+                    </ListItemIcon>
+                    <ListItemText primary={t('nav.admin')} />
+                    {adminMenuOpen ? <ExpandLess /> : <ExpandMore />}
+                  </ListItemButton>
+                </ListItem>
+                <Collapse in={adminMenuOpen} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    {adminMenuItems.map((item) => (
+                      <ListItem key={item.key} disablePadding>
+                        <ListItemButton
+                          sx={{ pl: 4 }}
+                          selected={location.pathname === item.path}
+                          onClick={() => handleNavigation(item.path)}
+                        >
+                          <ListItemIcon sx={{ color: location.pathname === item.path ? 'primary.main' : 'inherit', minWidth: 40 }}>
+                            {item.icon}
+                          </ListItemIcon>
+                          <ListItemText primary={item.label} />
+                        </ListItemButton>
+                      </ListItem>
+                    ))}
+                  </List>
+                </Collapse>
+              </>
+            )}
 
             <ListItem disablePadding>
               <ListItemButton onClick={handleLogout}>

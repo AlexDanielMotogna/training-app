@@ -1,21 +1,33 @@
+/**
+ * Training Sessions Service
+ * Manages team and private training sessions - REQUIRES INTERNET CONNECTION
+ * Note: Only workout tracking uses offline storage, not training sessions themselves
+ */
+
 import type { TrainingSession, RSVPStatus, CheckInStatus } from '../types/trainingSession';
 import { addNotification } from './mock';
-
-const SESSIONS_KEY = 'rhinos_training_sessions';
+import { trainingSessionService } from './api';
 
 /**
- * Get all training sessions
+ * Get all training sessions from backend
  */
-export function getAllSessions(): TrainingSession[] {
-  const stored = localStorage.getItem(SESSIONS_KEY);
-  return stored ? JSON.parse(stored) : [];
+export async function getAllSessions(): Promise<TrainingSession[]> {
+  try {
+    console.log('🔄 Fetching training sessions from backend...');
+    const backendSessions = await trainingSessionService.getAll() as TrainingSession[];
+    console.log(`✅ Loaded ${backendSessions.length} sessions from backend`);
+    return backendSessions;
+  } catch (error) {
+    console.error('❌ Failed to load sessions from backend:', error);
+    throw error;
+  }
 }
 
 /**
  * Get upcoming training sessions (future dates)
  */
-export function getUpcomingSessions(): TrainingSession[] {
-  const sessions = getAllSessions();
+export async function getUpcomingSessions(): Promise<TrainingSession[]> {
+  const sessions = await getAllSessions();
   const now = new Date();
   return sessions
     .filter(session => new Date(`${session.date}T${session.time}`) >= now)
@@ -29,66 +41,76 @@ export function getUpcomingSessions(): TrainingSession[] {
 /**
  * Get team sessions only
  */
-export function getTeamSessions(): TrainingSession[] {
-  return getUpcomingSessions().filter(s => s.sessionCategory === 'team');
+export async function getTeamSessions(): Promise<TrainingSession[]> {
+  const sessions = await getUpcomingSessions();
+  return sessions.filter(s => s.sessionCategory === 'team');
 }
 
 /**
  * Get private sessions only
  */
-export function getPrivateSessions(): TrainingSession[] {
-  return getUpcomingSessions().filter(s => s.sessionCategory === 'private');
+export async function getPrivateSessions(): Promise<TrainingSession[]> {
+  const sessions = await getUpcomingSessions();
+  return sessions.filter(s => s.sessionCategory === 'private');
 }
 
 /**
  * Create a new training session
  */
-export function createSession(session: Omit<TrainingSession, 'id' | 'createdAt'>): TrainingSession {
-  const sessions = getAllSessions();
-  const newSession: TrainingSession = {
-    ...session,
-    id: `session-${Date.now()}`,
-    createdAt: new Date().toISOString(),
-    checkIns: session.sessionCategory === 'team' ? [] : undefined,
-  };
+export async function createSession(session: Omit<TrainingSession, 'id' | 'createdAt'>): Promise<TrainingSession> {
+  try {
+    const created = await trainingSessionService.create({
+      creatorId: session.creatorId,
+      creatorName: session.creatorName,
+      sessionCategory: session.sessionCategory,
+      type: session.type,
+      title: session.title,
+      location: session.location,
+      address: session.address,
+      date: session.date,
+      time: session.time,
+      description: session.description,
+      attendees: session.attendees,
+    }) as TrainingSession;
 
-  sessions.push(newSession);
-  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+    console.log('✅ Session created on backend:', created.id);
 
-  // Notify all players about the new session
-  notifyNewSession(newSession);
+    // Notify all players about the new session
+    notifyNewSession(created);
 
-  return newSession;
+    return created;
+  } catch (error) {
+    console.error('❌ Failed to create session:', error);
+    throw error;
+  }
 }
 
 /**
  * Update RSVP status for a session
+ * REQUIRES INTERNET CONNECTION
  */
-export function updateRSVP(sessionId: string, userId: string, userName: string, status: RSVPStatus): void {
-  const sessions = getAllSessions();
-  const session = sessions.find(s => s.id === sessionId);
+export async function updateRSVP(sessionId: string, userId: string, userName: string, status: RSVPStatus): Promise<void> {
 
-  if (!session) return;
-
-  // Find or add attendee
-  const attendeeIndex = session.attendees.findIndex(a => a.userId === userId);
-
-  if (attendeeIndex >= 0) {
-    session.attendees[attendeeIndex].status = status;
-  } else {
-    session.attendees.push({ userId, userName, status });
+  try {
+    await trainingSessionService.updateRSVP(sessionId, userId, status);
+    console.log('✅ RSVP updated on backend');
+  } catch (error) {
+    console.error('❌ Failed to update RSVP:', error);
+    throw error;
   }
-
-  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
 }
 
 /**
  * Delete a training session
  */
-export function deleteSession(sessionId: string): void {
-  const sessions = getAllSessions();
-  const filtered = sessions.filter(s => s.id !== sessionId);
-  localStorage.setItem(SESSIONS_KEY, JSON.stringify(filtered));
+export async function deleteSession(sessionId: string): Promise<void> {
+  try {
+    await trainingSessionService.delete(sessionId);
+    console.log('✅ Session deleted from backend');
+  } catch (error) {
+    console.error('❌ Failed to delete session:', error);
+    throw error;
+  }
 }
 
 /**
@@ -108,34 +130,14 @@ export function canCheckIn(session: TrainingSession): boolean {
 /**
  * Check in user to a team session
  */
-export function checkInToSession(sessionId: string, userId: string, userName: string): void {
-  const sessions = getAllSessions();
-  const session = sessions.find(s => s.id === sessionId);
-
-  if (!session || session.sessionCategory !== 'team') return;
-
-  // Initialize checkIns array if not exists
-  if (!session.checkIns) {
-    session.checkIns = [];
+export async function checkInToSession(sessionId: string, userId: string, userName: string): Promise<void> {
+  try {
+    await trainingSessionService.checkIn(sessionId, userId);
+    console.log('✅ Check-in saved to backend');
+  } catch (error) {
+    console.error('❌ Failed to check in:', error);
+    throw error;
   }
-
-  // Check if already checked in
-  const existingCheckIn = session.checkIns.find(c => c.userId === userId);
-  if (existingCheckIn) return;
-
-  // Determine status based on time
-  const now = new Date();
-  const sessionStart = new Date(`${session.date}T${session.time}`);
-  const status: CheckInStatus = now <= sessionStart ? 'on_time' : 'late';
-
-  session.checkIns.push({
-    userId,
-    userName,
-    checkedInAt: now.toISOString(),
-    status,
-  });
-
-  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
 }
 
 /**

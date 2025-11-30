@@ -13,10 +13,17 @@ import {
   Card,
   CardContent,
   CircularProgress,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
+import DescriptionIcon from '@mui/icons-material/Description';
 import { useI18n } from '../i18n/I18nProvider';
+import { toastService } from '../services/toast';
 import { WorkoutBlock } from '../components/workout/WorkoutBlock';
 import { CoachBlockWorkoutDialog } from '../components/workout/CoachBlockWorkoutDialog';
 import { FreeSessionDialog } from '../components/workout/FreeSessionDialog';
@@ -25,20 +32,22 @@ import { EditWorkoutDialog } from '../components/workout/EditWorkoutDialog';
 import { WorkoutReportDialog } from '../components/workout/WorkoutReportDialog';
 import { ReportsHistory } from '../components/workout/ReportsHistory';
 import { FinishWorkoutDialog } from '../components/workout/FinishWorkoutDialog';
+import { DayWorkoutDialog } from '../components/workout/DayWorkoutDialog';
 import { PlanCard } from '../components/plan/PlanCard';
 import { PlanBuilderDialog } from '../components/plan/PlanBuilderDialog';
 import { StartWorkoutDialog } from '../components/plan/StartWorkoutDialog';
-import { getUser } from '../services/mock';
-import { getActiveAssignmentsForPlayer, getTrainingTypes, getTemplatesForPosition } from '../services/trainingBuilder';
-import { saveWorkoutLog, getWorkoutLogsByUser, getWorkoutLogs, deleteWorkoutLog, updateWorkoutLog, type WorkoutLog } from '../services/workoutLog';
-import { getUserPlans, createUserPlan, updateUserPlan, deleteUserPlan, duplicateUserPlan, markPlanAsUsed } from '../services/userPlan';
-import type { TrainingTypeKey, PositionTemplate, TemplateBlock } from '../types/template';
+import { getUser } from '../services/userProfile';
+import { assignmentService, trainingTypeService, workoutService } from '../services/api';
+import { saveWorkoutLog, getWorkoutLogsByUser, getWorkoutLogs, deleteWorkoutLog, updateWorkoutLog, syncWorkoutLogsFromBackend, type WorkoutLog } from '../services/workoutLog';
+import { getUserPlans, getUserPlansFromBackend, createUserPlan, updateUserPlan, deleteUserPlan, duplicateUserPlan, markPlanAsUsed } from '../services/userPlan';
+import type { TrainingTypeKey, TemplateBlock } from '../types/template';
 import type { WorkoutPayload, WorkoutEntry } from '../types/workout';
 import type { UserPlanTemplate, PlanExercise } from '../types/userPlan';
 import { sanitizeYouTubeUrl } from '../services/yt';
 import { analyzeWorkout, estimateWorkoutDuration, type WorkoutReport } from '../services/workoutAnalysis';
-import { saveWorkoutReport } from '../services/workoutReports';
+import { saveWorkoutReport, syncWorkoutReportsFromBackend } from '../services/workoutReports';
 import { generateAIWorkoutReport, getAPIKey } from '../services/aiInsights';
+import { addWorkoutPoints } from '../services/pointsSystem';
 
 type SessionView = 'my' | 'team';
 type MySessionTab = 'plans' | 'history' | 'reports';
@@ -46,11 +55,11 @@ type TeamSessionTab = 'plan' | 'history' | 'reports';
 
 export const MyTraining: React.FC = () => {
   const { t } = useI18n();
-  const [sessionView, setSessionView] = useState<SessionView>('my');
+  const [sessionView, setSessionView] = useState<SessionView>('team');
   const [mySessionTab, setMySessionTab] = useState<MySessionTab>('plans');
   const [teamSessionTab, setTeamSessionTab] = useState<TeamSessionTab>('plan');
   const [activeTab, setActiveTab] = useState<TrainingTypeKey>('strength_conditioning');
-  const [template, setTemplate] = useState<PositionTemplate | null>(null);
+  // const [template, setTemplate] = useState<PositionTemplate | null>(null); // No longer needed - using assignment.template directly
   const [showFreeSession, setShowFreeSession] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
@@ -74,24 +83,87 @@ export const MyTraining: React.FC = () => {
     estimatedMinutes: number;
     totalSets: number;
   } | null>(null);
+  const [selectedAssignment, setSelectedAssignment] = useState<any | null>(null);
+  const [showAssignmentDialog, setShowAssignmentDialog] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [showDayWorkout, setShowDayWorkout] = useState(false);
+  const [dayWorkoutBlocks, setDayWorkoutBlocks] = useState<TemplateBlock[]>([]);
+  const [dayWorkoutName, setDayWorkoutName] = useState('');
 
   const user = getUser();
-  const trainingTypes = getTrainingTypes();
-  const activeAssignments = user ? getActiveAssignmentsForPlayer(user.id) : [];
+  const [trainingTypes, setTrainingTypes] = useState<any[]>([]);
+  const [activeAssignments, setActiveAssignments] = useState<any[]>([]);
   const [workoutHistory, setWorkoutHistory] = useState(() =>
     user ? getWorkoutLogsByUser(user.id) : []
   );
 
+  // Load training types and assignments from backend
+  useEffect(() => {
+    const loadData = async () => {
+      if (!user) return;
+
+      console.log('📡 Loading data from backend...');
+
+      try {
+        // Fetch from API
+        const types = await trainingTypeService.getAll() as any[];
+
+        const allAssignments = await assignmentService.getAll() as any[];
+        const today = new Date().toISOString().split('T')[0];
+
+        // Filter active assignments
+        // - Coaches see ALL active assignments
+        // - Players only see assignments they are included in
+        const playerAssignments = allAssignments.filter((a: any) => {
+          const isActive = a.active && a.startDate <= today && (!a.endDate || a.endDate >= today);
+          if (!isActive) return false;
+
+          // Coaches see all active assignments
+          if (user.role === 'coach') return true;
+
+          // Players only see their assigned sessions
+          return a.playerIds?.includes(user.id);
+        });
+
+        console.log('✅ Loaded from API');
+
+        // Sync workout logs and reports from backend
+        await syncWorkoutLogsFromBackend(user.id);
+        await syncWorkoutReportsFromBackend(user.id);
+
+        // Refresh local state after sync
+        refreshWorkoutHistory();
+
+        setTrainingTypes(types);
+        setActiveAssignments(playerAssignments);
+        console.log('🎯 Loaded assignments:', playerAssignments);
+      } catch (error) {
+        console.error('❌ Error loading data:', error);
+        toastService.error('Failed to load training data');
+      }
+    };
+
+    loadData();
+  }, [user?.id]);
+
   // Load user plans
   useEffect(() => {
-    if (user) {
-      setUserPlans(getUserPlans(user.id));
-    }
-  }, [user]);
+    const loadUserPlans = async () => {
+      if (user) {
+        console.log('[MY TRAINING] Loading user plans...');
+        const plans = await getUserPlansFromBackend(user.id);
+        setUserPlans(plans);
+      }
+    };
+    
+    loadUserPlans();
+  }, [user?.id]);
 
-  const refreshUserPlans = () => {
+  const refreshUserPlans = async () => {
     if (user) {
-      setUserPlans(getUserPlans(user.id));
+      console.log('[MY TRAINING] Refreshing user plans...');
+      const plans = await getUserPlansFromBackend(user.id);
+      setUserPlans(plans);
     }
   };
 
@@ -111,28 +183,27 @@ export const MyTraining: React.FC = () => {
     return { currentWeek, totalWeeks, progressPercent };
   };
 
-  useEffect(() => {
-    if (user) {
-      const templates = getTemplatesForPosition(user.position);
-      const trainingTemplate = templates[activeTab];
-
-      if (trainingTemplate) {
-        // Convert TrainingTemplate to PositionTemplate format
-        const positionTemplate: PositionTemplate = {
-          blocks: trainingTemplate.blocks.map(block => ({
-            order: block.order,
-            title: block.title,
-            items: block.exercises,
-            globalSets: (block as any).globalSets,
-            exerciseConfigs: (block as any).exerciseConfigs,
-          }))
-        };
-        setTemplate(positionTemplate);
-      } else {
-        setTemplate(null);
-      }
-    }
-  }, [user, activeTab]);
+  // No longer needed - using assignment.template directly in Team Sessions
+  // useEffect(() => {
+  //   if (user) {
+  //     const templates = getTemplatesForPosition(user.position);
+  //     const trainingTemplate = templates[activeTab];
+  //     if (trainingTemplate) {
+  //       const positionTemplate: PositionTemplate = {
+  //         blocks: trainingTemplate.blocks.map(block => ({
+  //           order: block.order,
+  //           title: block.title,
+  //           items: block.exercises,
+  //           globalSets: (block as any).globalSets,
+  //           exerciseConfigs: (block as any).exerciseConfigs,
+  //         }))
+  //       };
+  //       setTemplate(positionTemplate);
+  //     } else {
+  //       setTemplate(null);
+  //     }
+  //   }
+  // }, [user?.position, activeTab]);
 
   const refreshWorkoutHistory = () => {
     if (user) {
@@ -199,14 +270,41 @@ export const MyTraining: React.FC = () => {
       refreshWorkoutHistory();
       setShowFreeSession(false);
 
+      // Default duration for free sessions (60 minutes)
+      const duration = 60;
+
       // Generate and save workout report for free sessions
-      // Note: Free sessions don't track duration, so we estimate 60 minutes
       const report = await generateWorkoutReport(
         payload.entries,
-        60, // Default duration for free sessions
+        duration,
         t('training.freeSessions')
       );
-      saveWorkoutReport(user.id, t('training.freeSessions'), report, 'player', payload.entries);
+      await saveWorkoutReport(user.id, t('training.freeSessions'), report, 'player', payload.entries);
+
+      // Add points to player's weekly total
+      const totalSets = payload.entries.reduce((sum, e) => sum + (e.setData?.length || e.sets || 0), 0);
+      const totalVolume = payload.entries.reduce((sum, e) => {
+        if (e.setData) {
+          return sum + e.setData.reduce((setSum, set) => setSum + ((set.reps || 0) * (set.kg || 0)), 0);
+        }
+        return sum + ((e.reps || 0) * (e.kg || 0) * (e.sets || 0));
+      }, 0);
+      const totalDistance = payload.entries.reduce((sum, e) => {
+        if (e.setData) {
+          return sum + e.setData.reduce((setSum, set) => setSum + (set.distance || 0), 0);
+        }
+        return sum + (e.distance || 0);
+      }, 0);
+      addWorkoutPoints(
+        user.id,
+        t('training.freeSessions'),
+        duration,
+        'personal',
+        totalSets,
+        totalVolume,
+        totalDistance > 0 ? totalDistance : undefined,
+        payload.notes
+      );
 
       setWorkoutReport(report);
       setLastWorkoutTitle(t('training.freeSessions'));
@@ -214,13 +312,17 @@ export const MyTraining: React.FC = () => {
     }
   };
 
-  const handleDeleteWorkout = (logId: string) => {
+  const handleDeleteWorkout = async (logId: string) => {
     if (window.confirm(t('workout.confirmDelete'))) {
-      // Soft delete - hides from history but keeps for stats
-      deleteWorkoutLog(logId);
-      refreshWorkoutHistory();
-      setSuccessMessage(t('workout.workoutDeleted'));
-      setTimeout(() => setSuccessMessage(''), 3000);
+      try {
+        // Soft delete - hides from history but keeps for stats
+        await deleteWorkoutLog(logId);
+        refreshWorkoutHistory();
+        toastService.deleted('Workout');
+        setSuccessMessage('');
+      } catch (error) {
+        toastService.deleteError('workout', error instanceof Error ? error.message : undefined);
+      }
     }
   };
 
@@ -232,8 +334,8 @@ export const MyTraining: React.FC = () => {
     updateWorkoutLog(workoutId, { entries, notes });
     refreshWorkoutHistory();
     setEditWorkout(null);
-    setSuccessMessage(t('workout.workoutUpdated'));
-    setTimeout(() => setSuccessMessage(''), 3000);
+    toastService.saved('Workout');
+    setSuccessMessage('');
   };
 
   const handleVideoClick = (url: string) => {
@@ -244,48 +346,64 @@ export const MyTraining: React.FC = () => {
   };
 
   // Plan handlers
-  const handleCreatePlan = (planName: string, exercises: PlanExercise[], warmupMinutes?: number) => {
+  const handleCreatePlan = async (planName: string, exercises: PlanExercise[], warmupMinutes?: number) => {
     if (user) {
-      createUserPlan({
-        userId: user.id,
-        name: planName,
-        exercises,
-        warmupMinutes,
-      });
-      refreshUserPlans();
-      setSuccessMessage('Plan created successfully!');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      try {
+        await createUserPlan({
+          userId: user.id,
+          name: planName,
+          exercises,
+          warmupMinutes,
+        });
+        await refreshUserPlans();
+        toastService.created('Plan');
+        setSuccessMessage('');
+      } catch (error) {
+        toastService.createError('plan', error instanceof Error ? error.message : undefined);
+      }
     }
   };
 
-  const handleUpdatePlan = (planName: string, exercises: PlanExercise[], warmupMinutes?: number) => {
+  const handleUpdatePlan = async (planName: string, exercises: PlanExercise[], warmupMinutes?: number) => {
     if (editingPlan) {
-      updateUserPlan(editingPlan.id, {
-        name: planName,
-        exercises,
-        warmupMinutes,
-      });
-      refreshUserPlans();
-      setEditingPlan(null);
-      setSuccessMessage('Plan updated successfully!');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      try {
+        await updateUserPlan(editingPlan.id, {
+          name: planName,
+          exercises,
+          warmupMinutes,
+        });
+        await refreshUserPlans();
+        setEditingPlan(null);
+        toastService.updated('Plan');
+        setSuccessMessage('');
+      } catch (error) {
+        toastService.updateError('plan', error instanceof Error ? error.message : undefined);
+      }
     }
   };
 
-  const handleDeletePlan = (planId: string) => {
+  const handleDeletePlan = async (planId: string) => {
     if (window.confirm('Are you sure you want to delete this plan?')) {
-      deleteUserPlan(planId);
-      refreshUserPlans();
-      setSuccessMessage('Plan deleted successfully!');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      try {
+        await deleteUserPlan(planId);
+        await refreshUserPlans();
+        toastService.deleted('Plan');
+        setSuccessMessage('');
+      } catch (error) {
+        toastService.deleteError('plan', error instanceof Error ? error.message : undefined);
+      }
     }
   };
 
-  const handleDuplicatePlan = (planId: string) => {
-    duplicateUserPlan(planId);
-    refreshUserPlans();
-    setSuccessMessage('Plan duplicated successfully!');
-    setTimeout(() => setSuccessMessage(''), 3000);
+  const handleDuplicatePlan = async (planId: string) => {
+    try {
+      await duplicateUserPlan(planId);
+      await refreshUserPlans();
+      toastService.duplicated('Plan');
+      setSuccessMessage('');
+    } catch (error) {
+      toastService.error('Failed to duplicate plan', { autoClose: 5000 });
+    }
   };
 
   const handleStartPlan = (plan: UserPlanTemplate) => {
@@ -296,7 +414,7 @@ export const MyTraining: React.FC = () => {
   // Interceptor: Show duration dialog instead of saving directly
   const handleFinishWorkoutRequest = (entries: WorkoutEntry[], notes: string, elapsedMinutes: number) => {
     const totalSets = entries.reduce((sum, entry) => sum + (entry.setData?.length || 0), 0);
-    const estimatedMinutes = estimateWorkoutDuration(entries);
+    const estimatedMinutes = estimateWorkoutDuration(entries, startingPlan?.warmupMinutes);
 
     setPendingWorkout({
       entries,
@@ -345,12 +463,37 @@ export const MyTraining: React.FC = () => {
         completionPercentage,
       };
 
+      // Save to localStorage first (offline support)
       const allLogs = getWorkoutLogs();
       allLogs.push(workoutLog);
       localStorage.setItem('rhinos_workouts', JSON.stringify(allLogs));
 
+      // Save to IndexedDB for offline persistence
+
+      // Try to save to backend (will work if online)
+      if (online) {
+        try {
+          await workoutService.create({
+            date: today,
+            entries: workoutLog.entries,
+            notes: workoutLog.notes,
+            source: 'player',
+            planTemplateId: workoutLog.planTemplateId,
+            planName: workoutLog.planName,
+            duration: workoutLog.duration,
+            planMetadata: workoutLog.planMetadata,
+            completionPercentage: workoutLog.completionPercentage,
+          });
+          console.log('✅ Player workout saved to backend');
+        } catch (error) {
+          console.warn('⚠️ Failed to save player workout to backend, will sync later:', error);
+        }
+      } else {
+        console.log('📦 Player workout queued for sync when online');
+      }
+
       markPlanAsUsed(startingPlan.id);
-      refreshUserPlans();
+      await refreshUserPlans();
       refreshWorkoutHistory();
 
       // Generate and save workout report
@@ -360,13 +503,43 @@ export const MyTraining: React.FC = () => {
         startingPlan.name,
         notes
       );
-      saveWorkoutReport(user.id, startingPlan.name, report, 'player', entries);
+
+      // Save report to localStorage and backend
+      await saveWorkoutReport(user.id, startingPlan.name, report, 'player', entries);
+
+      // Add points to player's weekly total
+      const totalSets = entries.reduce((sum, e) => sum + (e.setData?.length || e.sets || 0), 0);
+      const totalVolume = entries.reduce((sum, e) => {
+        if (e.setData) {
+          return sum + e.setData.reduce((setSum, set) => setSum + ((set.reps || 0) * (set.kg || 0)), 0);
+        }
+        return sum + ((e.reps || 0) * (e.kg || 0) * (e.sets || 0));
+      }, 0);
+      const totalDistance = entries.reduce((sum, e) => {
+        if (e.setData) {
+          return sum + e.setData.reduce((setSum, set) => setSum + (set.distance || 0), 0);
+        }
+        return sum + (e.distance || 0);
+      }, 0);
+      addWorkoutPoints(
+        user.id,
+        startingPlan.name,
+        duration,
+        'personal',
+        totalSets,
+        totalVolume,
+        totalDistance > 0 ? totalDistance : undefined,
+        notes
+      );
 
       setWorkoutReport(report);
       setLastWorkoutTitle(startingPlan.name);
       setShowWorkoutReport(true);
       setStartingPlan(null);
       setShowStartWorkout(false); // Close StartWorkoutDialog after everything is done
+
+      // Show success toast
+      toastService.workoutCompleted();
     }
   };
 
@@ -426,9 +599,35 @@ export const MyTraining: React.FC = () => {
         completionPercentage,
       };
 
+      // Save to localStorage first (offline support)
       const allLogs = getWorkoutLogs();
       allLogs.push(workoutLog);
       localStorage.setItem('rhinos_workouts', JSON.stringify(allLogs));
+
+      // Save to IndexedDB for offline persistence
+
+      // Try to save to backend (will work if online)
+      if (online) {
+        try {
+          await workoutService.create({
+            date: today,
+            entries: workoutLog.entries,
+            notes: workoutLog.notes,
+            source: 'coach',
+            planName: workoutLog.planName,
+            duration: workoutLog.duration,
+            planMetadata: workoutLog.planMetadata,
+            completionPercentage: workoutLog.completionPercentage,
+          });
+          console.log('✅ Workout saved to backend');
+        } catch (error) {
+          console.warn('⚠️ Failed to save workout to backend, will sync later:', error);
+          // Add to outbox for later sync
+        }
+      } else {
+        // Offline: add to outbox for later sync
+        console.log('📦 Workout queued for sync when online');
+      }
 
       refreshWorkoutHistory();
 
@@ -439,13 +638,153 @@ export const MyTraining: React.FC = () => {
         selectedBlock.title,
         notes
       );
-      saveWorkoutReport(user.id, selectedBlock.title, report, 'coach', entries);
+
+      // Save report to localStorage and backend
+      await saveWorkoutReport(user.id, selectedBlock.title, report, 'coach', entries);
+
+      // Add points to player's weekly total
+      const totalSets = entries.reduce((sum, e) => sum + (e.setData?.length || e.sets || 0), 0);
+      const totalVolume = entries.reduce((sum, e) => {
+        if (e.setData) {
+          return sum + e.setData.reduce((setSum, set) => setSum + ((set.reps || 0) * (set.kg || 0)), 0);
+        }
+        return sum + ((e.reps || 0) * (e.kg || 0) * (e.sets || 0));
+      }, 0);
+      const totalDistance = entries.reduce((sum, e) => {
+        if (e.setData) {
+          return sum + e.setData.reduce((setSum, set) => setSum + (set.distance || 0), 0);
+        }
+        return sum + (e.distance || 0);
+      }, 0);
+      addWorkoutPoints(
+        user.id,
+        selectedBlock.title,
+        duration,
+        'coach',
+        totalSets,
+        totalVolume,
+        totalDistance > 0 ? totalDistance : undefined,
+        notes
+      );
 
       setWorkoutReport(report);
       setLastWorkoutTitle(selectedBlock.title);
       setShowWorkoutReport(true);
       setSelectedBlock(null);
       setShowBlockWorkout(false); // Close CoachBlockWorkoutDialog after everything is done
+
+      // Show success toast
+      toastService.workoutCompleted();
+    }
+  };
+
+  const handleFinishDayWorkout = async (entries: WorkoutEntry[], notes: string, duration: number, dayName: string) => {
+    if (user) {
+      const today = new Date().toISOString().split('T')[0];
+
+      // Calculate plan metadata for completion tracking
+      const totalExercises = dayWorkoutBlocks.reduce((sum, block) => sum + block.items.length, 0);
+      const totalTargetSets = entries.reduce((sum, entry) => sum + (entry.sets || 0), 0);
+
+      // Calculate completion percentage based on completed sets vs target sets
+      let completedSets = 0;
+      entries.forEach(entry => {
+        completedSets += entry.setData?.length || 0;
+      });
+
+      const completionPercentage = totalTargetSets > 0
+        ? Math.round((completedSets / totalTargetSets) * 100)
+        : 0;
+
+      const workoutLog = {
+        id: crypto.randomUUID(),
+        userId: user.id,
+        date: today,
+        entries,
+        notes,
+        source: 'coach' as const,
+        planName: dayName,
+        duration,
+        createdAt: new Date().toISOString(),
+        planMetadata: {
+          totalExercises,
+          totalTargetSets,
+        },
+        completionPercentage,
+      };
+
+      // Save to localStorage first (offline support)
+      const allLogs = getWorkoutLogs();
+      allLogs.push(workoutLog);
+      localStorage.setItem('rhinos_workouts', JSON.stringify(allLogs));
+
+      // Save to IndexedDB for offline persistence
+
+      // Try to save to backend (will work if online)
+      if (online) {
+        try {
+          await workoutService.create({
+            date: today,
+            entries: workoutLog.entries,
+            notes: workoutLog.notes,
+            source: 'coach',
+            planName: workoutLog.planName,
+            duration: workoutLog.duration,
+            planMetadata: workoutLog.planMetadata,
+            completionPercentage: workoutLog.completionPercentage,
+          });
+          console.log('✅ Workout saved to backend');
+        } catch (error) {
+          console.warn('⚠️ Failed to save workout to backend, will sync later:', error);
+        }
+      } else {
+        console.log('📦 Workout queued for sync when online');
+      }
+
+      refreshWorkoutHistory();
+
+      // Generate and save workout report
+      const report = await generateWorkoutReport(
+        entries,
+        duration,
+        dayName,
+        notes
+      );
+
+      await saveWorkoutReport(user.id, dayName, report, 'coach', entries);
+
+      // Add points to player's weekly total
+      const totalSets = entries.reduce((sum, e) => sum + (e.setData?.length || e.sets || 0), 0);
+      const totalVolume = entries.reduce((sum, e) => {
+        if (e.setData) {
+          return sum + e.setData.reduce((setSum, set) => setSum + ((set.reps || 0) * (set.kg || 0)), 0);
+        }
+        return sum + ((e.reps || 0) * (e.kg || 0) * (e.sets || 0));
+      }, 0);
+      const totalDistance = entries.reduce((sum, e) => {
+        if (e.setData) {
+          return sum + e.setData.reduce((setSum, set) => setSum + (set.distance || 0), 0);
+        }
+        return sum + (e.distance || 0);
+      }, 0);
+      addWorkoutPoints(
+        user.id,
+        dayName,
+        duration,
+        'coach',
+        totalSets,
+        totalVolume,
+        totalDistance > 0 ? totalDistance : undefined,
+        notes
+      );
+
+      setWorkoutReport(report);
+      setLastWorkoutTitle(dayName);
+      setShowWorkoutReport(true);
+      setShowDayWorkout(false);
+
+      // Show success toast
+      toastService.workoutCompleted();
     }
   };
 
@@ -496,10 +835,11 @@ export const MyTraining: React.FC = () => {
                   setEditingPlan(null);
                   setShowPlanBuilder(true);
                 }}
-                fullWidth
                 sx={{
                   mb: 3,
                   py: 1.5,
+                  width: { xs: '100%', sm: 'auto' },
+                  minWidth: { sm: '200px' },
                 }}
               >
                 Create New Plan
@@ -552,71 +892,8 @@ export const MyTraining: React.FC = () => {
       {/* TEAM SESSIONS VIEW */}
       {sessionView === 'team' && (
         <Box>
-          {/* Assigned Programs Section */}
           {activeAssignments.length > 0 ? (
             <>
-              <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
-                  {t('training.yourAssignedPrograms')}
-                </Typography>
-
-                {activeAssignments.map((assignment) => {
-                  const { currentWeek, totalWeeks, progressPercent } = calculateProgress(
-                    assignment.startDate,
-                    assignment.endDate
-                  );
-
-                  return (
-                    <Card key={assignment.id} sx={{ mb: 2 }}>
-                      <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                          <Box>
-                            <Typography variant="h6" sx={{ mb: 0.5 }}>
-                              {assignment.template.trainingTypeName}
-                            </Typography>
-                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                              <Chip
-                                label={`Week ${currentWeek} of ${totalWeeks}`}
-                                size="small"
-                                color="primary"
-                              />
-                              <Chip
-                                label={`${assignment.template.frequencyPerWeek}x per week`}
-                                size="small"
-                                variant="outlined"
-                              />
-                              <Typography variant="caption" color="text.secondary">
-                                {assignment.startDate} → {assignment.endDate}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </Box>
-
-                        <Box sx={{ mb: 1 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                            <Typography variant="caption" color="text.secondary">
-                              {t('training.programProgress')}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {Math.round(progressPercent)}%
-                            </Typography>
-                          </Box>
-                          <LinearProgress
-                            variant="determinate"
-                            value={progressPercent}
-                            sx={{ height: 8, borderRadius: 1 }}
-                          />
-                        </Box>
-
-                        <Alert severity="info" sx={{ mt: 2 }}>
-                          {t('training.completeTraining', { frequency: assignment.template.frequencyPerWeek })}
-                        </Alert>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </Box>
-
               {/* Team Session Tabs: Training Plan / History / My Reports */}
               <Tabs
                 value={teamSessionTab}
@@ -631,59 +908,124 @@ export const MyTraining: React.FC = () => {
               {/* Training Plan Tab */}
               {teamSessionTab === 'plan' && (
                 <>
-                  {/* Training Type Tabs - Only show assigned programs */}
-                  <Tabs
-                    value={activeTab}
-                    onChange={(_, value) => setActiveTab(value)}
-                    sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
-                    variant="scrollable"
-                    scrollButtons="auto"
-                  >
-                    {trainingTypes
-                      .filter((tt) => {
-                        // Only show tabs for training types that are in activeAssignments
-                        return activeAssignments.some(assignment => assignment.template.trainingTypeId === tt.id);
-                      })
-                      .map((tt) => {
-                        // Use actual training type name from the assignment
-                        const assignment = activeAssignments.find(a => a.template.trainingTypeId === tt.id);
-                        const displayName = assignment?.template.trainingTypeName || tt.nameEN;
+                  {/* Assigned Programs Cards */}
+                  <Box sx={{ mb: 4 }}>
+                    {activeAssignments
+                      .filter(assignment => assignment.template) // Filter out assignments without template
+                      .map((assignment) => {
+                        const { currentWeek, totalWeeks, progressPercent } = calculateProgress(
+                          assignment.startDate,
+                          assignment.endDate
+                        );
+
+                        // Helper to get unique days from blocks
+                        const getAvailableDays = (blocks: any[]) => {
+                          const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                          const daysSet = new Set<number>();
+                          blocks.forEach(block => {
+                            const dayNum = (block as any).dayNumber;
+                            if (dayNum && dayNum >= 1 && dayNum <= 7) {
+                              daysSet.add(dayNum);
+                            }
+                          });
+                          return Array.from(daysSet).sort().map(num => dayNames[num - 1].substring(0, 3));
+                        };
+
+                        const availableDays = getAvailableDays(assignment.template.blocks);
 
                         return (
-                          <Tab
-                            key={tt.key}
-                            value={tt.key}
-                            label={displayName}
-                          />
-                        );
-                      })}
-                  </Tabs>
+                          <Card
+                            key={assignment.id}
+                            sx={{
+                              mb: 2,
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                              '&:hover': {
+                                transform: 'translateY(-2px)',
+                                boxShadow: 4,
+                              }
+                            }}
+                            onClick={() => {
+                              setSelectedAssignment(assignment);
+                              setShowAssignmentDialog(true);
+                            }}
+                          >
+                            <CardContent>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                <Box sx={{ flex: 1 }}>
+                                  <Typography variant="h6" sx={{ mb: 0.5 }}>
+                                    {assignment.template.trainingTypeName}
+                                  </Typography>
+                                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                                  <Chip
+                                    label={`Week ${currentWeek} of ${totalWeeks}`}
+                                    size="small"
+                                    color="primary"
+                                  />
+                                  <Chip
+                                    label={`${assignment.template.frequencyPerWeek}x per week`}
+                                    size="small"
+                                    variant="outlined"
+                                  />
+                                  <Typography variant="caption" color="text.secondary">
+                                    {assignment.startDate} → {assignment.endDate}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </Box>
 
-                  {/* Coach Plan Exercises */}
-                  {template ? (
-                    <Box>
-                      <Typography variant="h6" sx={{ mb: 2, color: 'text.secondary' }}>
-                        {t('training.coachPlan')}
-                      </Typography>
+                            <Box sx={{ mb: 2 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                <Typography variant="caption" color="text.secondary">
+                                  {t('training.programProgress')}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {Math.round(progressPercent)}%
+                                </Typography>
+                              </Box>
+                              <LinearProgress
+                                variant="determinate"
+                                value={progressPercent}
+                                sx={{ height: 8, borderRadius: 1 }}
+                              />
+                            </Box>
 
-                      {template.blocks
-                        .sort((a, b) => a.order - b.order)
-                        .map((block) => (
-                          <WorkoutBlock
-                            key={block.order}
-                            block={block}
-                            showLogButtons={false}
-                            onStartBlock={handleStartBlock}
-                            onVideoClick={handleVideoClick}
-                            trainingType={activeTab}
-                          />
-                        ))}
-                    </Box>
-                  ) : (
-                    <Alert severity="info">
-                      No training plan available for this type
-                    </Alert>
-                  )}
+                            {availableDays.length > 0 && (
+                              <Box sx={{ mb: 2 }}>
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                                  Training Days:
+                                </Typography>
+                                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                                  {availableDays.map(day => (
+                                    <Chip
+                                      key={day}
+                                      label={day}
+                                      size="small"
+                                      sx={{
+                                        backgroundColor: 'primary.light',
+                                        color: 'white',
+                                        fontWeight: 600,
+                                        fontSize: '0.7rem'
+                                      }}
+                                    />
+                                  ))}
+                                </Box>
+                              </Box>
+                            )}
+
+                            <Alert severity="info" sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <FitnessCenterIcon fontSize="small" />
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  Click to start training
+                                </Typography>
+                              </Box>
+                            </Alert>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </Box>
                 </>
               )}
 
@@ -831,6 +1173,210 @@ export const MyTraining: React.FC = () => {
           totalSets={pendingWorkout.totalSets}
         />
       )}
+
+      {/* Assignment Day Selection Dialog */}
+      <Dialog
+        open={showAssignmentDialog}
+        onClose={() => {
+          setShowAssignmentDialog(false);
+          setSelectedAssignment(null);
+          setSelectedDay(null);
+        }}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: { maxHeight: '90vh' }
+        }}
+      >
+        <DialogContent sx={{ p: 3 }}>
+          {selectedAssignment && (() => {
+            const { currentWeek } = calculateProgress(selectedAssignment.startDate, selectedAssignment.endDate);
+
+            // Group blocks by day
+            const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const dayGroups = new Map<number, any[]>();
+
+            selectedAssignment.template.blocks.forEach((block: any) => {
+              const dayNum = block.dayNumber;
+              if (dayNum && dayNum >= 1 && dayNum <= 7) {
+                if (!dayGroups.has(dayNum)) {
+                  dayGroups.set(dayNum, []);
+                }
+                dayGroups.get(dayNum)!.push(block);
+              }
+            });
+
+            const sortedDays = Array.from(dayGroups.entries()).sort(([a], [b]) => a - b);
+
+            // If a day is selected, show that day's blocks
+            if (selectedDay !== null) {
+              const dayBlocks = dayGroups.get(selectedDay) || [];
+              const dayName = dayNames[selectedDay - 1];
+              const dayFullName = `${dayName} / Day ${selectedDay}`;
+
+              // Convert to template blocks
+              const templateBlocks: TemplateBlock[] = dayBlocks
+                .sort((a, b) => a.order - b.order)
+                .map(block => ({
+                  order: block.order,
+                  title: block.title,
+                  items: (block as any).items || (block as any).exercises || [],
+                  globalSets: (block as any).globalSets,
+                  exerciseConfigs: (block as any).exerciseConfigs,
+                }));
+
+              const totalExercises = templateBlocks.reduce((sum, b) => sum + b.items.length, 0);
+
+              return (
+                <Box>
+                  {/* Back button */}
+                  <Button
+                    onClick={() => setSelectedDay(null)}
+                    sx={{ mb: 2 }}
+                    startIcon={<ExpandMoreIcon sx={{ transform: 'rotate(90deg)' }} />}
+                  >
+                    Back to days
+                  </Button>
+
+                  <Typography variant="h5" sx={{ mb: 1, fontWeight: 600 }}>
+                    {dayFullName}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {selectedAssignment.template.trainingTypeName} - Week {currentWeek}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    {templateBlocks.length} block{templateBlocks.length > 1 ? 's' : ''} • {totalExercises} exercise{totalExercises > 1 ? 's' : ''}
+                  </Typography>
+
+                  {/* Preview of blocks */}
+                  {templateBlocks.map((block, idx) => (
+                    <Box key={idx} sx={{ mb: 2 }}>
+                      <WorkoutBlock
+                        block={block}
+                        showLogButtons={false}
+                        onStartBlock={undefined}
+                        onVideoClick={handleVideoClick}
+                        trainingType={activeTab}
+                      />
+                    </Box>
+                  ))}
+
+                  {/* Single button to start the entire day */}
+                  <Button
+                    variant="contained"
+                    size="large"
+                    fullWidth
+                    onClick={() => {
+                      setDayWorkoutBlocks(templateBlocks);
+                      setDayWorkoutName(dayFullName);
+                      setShowDayWorkout(true);
+                      setShowAssignmentDialog(false);
+                      setSelectedDay(null);
+                    }}
+                    sx={{
+                      mt: 3,
+                      py: 2,
+                      fontSize: '1.1rem',
+                      fontWeight: 600,
+                      background: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+                      boxShadow: '0 3px 5px 2px rgba(33, 203, 243, .3)',
+                    }}
+                    startIcon={<FitnessCenterIcon />}
+                  >
+                    Start Training - {dayFullName}
+                  </Button>
+                </Box>
+              );
+            }
+
+            // Default view: Show day selection
+            return (
+              <Box>
+                <Typography variant="h5" sx={{ mb: 1, fontWeight: 600 }}>
+                  {selectedAssignment.template.trainingTypeName}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  Week {currentWeek} - Select a training day
+                </Typography>
+
+                {selectedAssignment.template.weeklyNotes && (
+                  <Alert severity="info" sx={{ mb: 3, whiteSpace: 'pre-line' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <DescriptionIcon fontSize="small" />
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        Week {currentWeek} Notes
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2">
+                      {selectedAssignment.template.weeklyNotes}
+                    </Typography>
+                  </Alert>
+                )}
+
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {sortedDays.map(([dayNum, blocks]) => {
+                    const dayName = dayNames[dayNum - 1];
+                    const sessionCount = blocks.length;
+                    const totalExercises = blocks.reduce((sum: number, b: any) =>
+                      sum + ((b.items || b.exercises || []).length), 0
+                    );
+
+                    return (
+                      <Card
+                        key={dayNum}
+                        sx={{
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          '&:hover': {
+                            transform: 'translateX(4px)',
+                            boxShadow: 3,
+                          }
+                        }}
+                        onClick={() => setSelectedDay(dayNum)}
+                      >
+                        <CardContent>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Box>
+                              <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                                {dayName} / Day {dayNum}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {sessionCount} session{sessionCount > 1 ? 's' : ''} • {totalExercises} exercise{totalExercises > 1 ? 's' : ''}
+                              </Typography>
+                            </Box>
+                            <ExpandMoreIcon sx={{ transform: 'rotate(-90deg)', color: 'text.secondary' }} />
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </Box>
+
+                {sortedDays.length === 0 && (
+                  <Alert severity="warning">
+                    No training days scheduled for this program
+                  </Alert>
+                )}
+              </Box>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Day Workout Dialog - Handles full day training with multiple blocks */}
+      <DayWorkoutDialog
+        open={showDayWorkout}
+        blocks={dayWorkoutBlocks}
+        dayName={dayWorkoutName}
+        trainingTypeName={selectedAssignment?.template?.trainingTypeName || ''}
+        trainingType={activeTab}
+        onClose={() => {
+          setShowDayWorkout(false);
+          setDayWorkoutBlocks([]);
+          setDayWorkoutName('');
+        }}
+        onFinish={handleFinishDayWorkout}
+      />
     </Box>
   );
 };

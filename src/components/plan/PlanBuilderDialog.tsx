@@ -20,6 +20,7 @@ import { useI18n } from '../../i18n/I18nProvider';
 import { ExerciseSelector } from '../workout/ExerciseSelector';
 import type { UserPlanTemplate, PlanExercise } from '../../types/userPlan';
 import type { Exercise } from '../../types/exercise';
+import { toastService } from '../../services/toast';
 
 interface PlanBuilderDialogProps {
   open: boolean;
@@ -98,11 +99,11 @@ export const PlanBuilderDialog: React.FC<PlanBuilderDialogProps> = ({
 
   const handleSave = () => {
     if (!planName.trim()) {
-      alert('Please enter a plan name');
+      toastService.validationError('Please enter a plan name');
       return;
     }
-    if (exercises.length === 0 && !warmupMinutes) {
-      alert('Please add at least one exercise or specify warm-up time');
+    if (exercises.length === 0) {
+      toastService.validationError('Please add at least one exercise');
       return;
     }
     onSave(planName, exercises, warmupMinutes);
@@ -134,17 +135,6 @@ export const PlanBuilderDialog: React.FC<PlanBuilderDialogProps> = ({
               required
               placeholder="e.g., Upper Body, Leg Day, Full Body"
               autoFocus
-            />
-
-            {/* Free Warm-up */}
-            <TextField
-              label="Free Warm-up (minutes)"
-              type="number"
-              value={warmupMinutes ?? ''}
-              onChange={(e) => setWarmupMinutes(e.target.value ? Number(e.target.value) : undefined)}
-              placeholder="Optional: e.g., 10 minutes"
-              helperText="For players who improvise their warm-up without specific exercises"
-              inputProps={{ min: 0, max: 60, step: 1 }}
             />
 
             {/* Exercises List */}

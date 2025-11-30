@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Paper, IconButton, Tooltip, Button, CircularProgress } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import type { TemplateBlock } from '../../types/template';
 import type { Exercise } from '../../types/exercise';
+import type { BlockInfo } from '../../services/blockInfo';
 import { ExerciseRow } from './ExerciseRow';
 import { useI18n } from '../../i18n/I18nProvider';
 import { getBlockInfo } from '../../services/blockInfo';
@@ -74,7 +75,15 @@ export const WorkoutBlock: React.FC<WorkoutBlockProps> = ({
   const { hasProgress, completionPercentage } = getActiveSessionProgress();
 
   // Get custom block info from coach configuration
-  const blockInfo = getBlockInfo(block.title, trainingType);
+  const [blockInfo, setBlockInfo] = useState<BlockInfo | null>(null);
+
+  useEffect(() => {
+    const loadBlockInfo = async () => {
+      const info = await getBlockInfo(block.title, trainingType);
+      setBlockInfo(info);
+    };
+    loadBlockInfo();
+  }, [block.title, trainingType]);
 
   // Fallback to default i18n messages if no custom info
   const getDefaultInfoMessage = () => {
@@ -160,16 +169,20 @@ export const WorkoutBlock: React.FC<WorkoutBlockProps> = ({
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         {block.items.map((exercise) => {
-          // Get target sets for this exercise
+          // Get target sets, reps, and unit for this exercise
           const exerciseConfig = block.exerciseConfigs?.find(c => c.exerciseId === exercise.id);
           const targetSets = exerciseConfig?.sets || block.globalSets;
+          const targetReps = exerciseConfig?.reps;
+          const unit = exerciseConfig?.unit;
 
           return (
             <ExerciseRow
               key={exercise.id}
               exercise={exercise}
-              showLogButton={showLogButtons}
               targetSets={targetSets}
+              targetReps={targetReps}
+              unit={unit}
+              showLogButton={showLogButtons}
               onLogWorkout={onLogWorkout ? () => onLogWorkout(exercise) : undefined}
               onVideoClick={
                 exercise.youtubeUrl && onVideoClick

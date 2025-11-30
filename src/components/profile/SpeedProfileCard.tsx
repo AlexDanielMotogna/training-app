@@ -8,9 +8,14 @@ import type { SpeedSummary } from '../../types/testing';
 interface SpeedProfileCardProps {
   summary: SpeedSummary | null;
   change: number | null;
+  isViewingOtherPlayer?: boolean;
 }
 
-export const SpeedProfileCard: React.FC<SpeedProfileCardProps> = ({ summary, change }) => {
+export const SpeedProfileCard: React.FC<SpeedProfileCardProps> = ({ 
+  summary, 
+  change, 
+  isViewingOtherPlayer = false 
+}) => {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -42,14 +47,16 @@ export const SpeedProfileCard: React.FC<SpeedProfileCardProps> = ({ summary, cha
         <Typography variant="h6">
           {t('profile.speed.title')}
         </Typography>
-        <Link
-          component="button"
-          variant="caption"
-          onClick={() => navigate('/testing/speed')}
-          sx={{ cursor: 'pointer', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
-        >
-          {summary ? t('profile.testAgain') : t('profile.testNow')}
-        </Link>
+        {!isViewingOtherPlayer && (
+          <Link
+            component="button"
+            variant="caption"
+            onClick={() => navigate('/testing/speed')}
+            sx={{ cursor: 'pointer', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+          >
+            {summary ? t('profile.testAgain') : t('profile.testNow')}
+          </Link>
+        )}
       </Box>
 
       {!summary ? (
@@ -115,7 +122,7 @@ export const SpeedProfileCard: React.FC<SpeedProfileCardProps> = ({ summary, cha
             </Typography>
             <Table size="small">
               <TableBody>
-                {summary.byTest.filter(result => !result.skipped).map(result => (
+                {summary.byTest && Array.isArray(summary.byTest) ? summary.byTest.filter(result => !result.skipped).map(result => (
                   <TableRow key={result.key}>
                     <TableCell><strong>{t(`tests.speed.${result.key}`)}</strong></TableCell>
                     <TableCell align="right">
@@ -124,7 +131,7 @@ export const SpeedProfileCard: React.FC<SpeedProfileCardProps> = ({ summary, cha
                       </Typography>
                     </TableCell>
                   </TableRow>
-                ))}
+                )) : null}
               </TableBody>
             </Table>
 
@@ -145,9 +152,11 @@ export const SpeedProfileCard: React.FC<SpeedProfileCardProps> = ({ summary, cha
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setDialogOpen(false)}>{t('common.close')}</Button>
-            <Button variant="contained" onClick={() => { setDialogOpen(false); navigate('/testing/speed'); }}>
-              {t('profile.testAgain')}
-            </Button>
+            {!isViewingOtherPlayer && (
+              <Button variant="contained" onClick={() => { setDialogOpen(false); navigate('/testing/speed'); }}>
+                {t('profile.testAgain')}
+              </Button>
+            )}
           </DialogActions>
         </Dialog>
       )}

@@ -15,28 +15,73 @@ import {
   TableRow,
   Tooltip,
   IconButton,
+  CircularProgress,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useI18n } from '../i18n/I18nProvider';
-import { getMockLeaderboard } from '../services/mock';
-import type { LeaderboardRow } from '../types/leaderboard';
+import { leaderboardService } from '../services/api';
 import type { Position } from '../types/exercise';
+import { getTeamSettings } from '../services/teamSettings';
 
 const positions: Position[] = ['RB', 'WR', 'LB', 'OL', 'DB', 'QB', 'DL', 'TE', 'K/P'];
 
+interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  playerName: string;
+  position: string;
+  ageCategory?: string;
+  totalPoints: number;
+  targetPoints: number;
+  workoutDays: number;
+  compliancePct: number;
+  attendancePct: number;
+  freeSharePct: number;
+  teamTrainingDays: number;
+  coachWorkoutDays: number;
+  personalWorkoutDays: number;
+  lastUpdated: string;
+}
+
 export const Leaderboard: React.FC = () => {
   const { t } = useI18n();
+  const teamSettings = getTeamSettings();
+  const allowedCategories = teamSettings.allowedCategories || [];
+
   const [window, setWindow] = useState<'7d' | '30d'>('7d');
   const [positionFilter, setPositionFilter] = useState<Position | ''>('');
-  const [data, setData] = useState<LeaderboardRow[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [data, setData] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const mockData = getMockLeaderboard();
-    const filtered = positionFilter
-      ? mockData.filter((row) => row.position === positionFilter)
-      : mockData;
-    setData(filtered);
-  }, [positionFilter]);
+    const loadLeaderboard = async () => {
+      try {
+        setLoading(true);
+        const response = await leaderboardService.getCurrentWeek();
+
+        // Filter by position and category
+        let filtered = response.leaderboard;
+
+        if (positionFilter) {
+          filtered = filtered.filter((entry: LeaderboardEntry) => entry.position === positionFilter);
+        }
+
+        if (categoryFilter) {
+          filtered = filtered.filter((entry: LeaderboardEntry) => entry.ageCategory === categoryFilter);
+        }
+
+        setData(filtered);
+      } catch (error) {
+        console.error('[LEADERBOARD] Failed to load:', error);
+        setData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadLeaderboard();
+  }, [positionFilter, categoryFilter]);
 
   return (
     <Box>
@@ -74,6 +119,27 @@ export const Leaderboard: React.FC = () => {
             ))}
           </Select>
         </FormControl>
+
+        {/* Age Category Filter - only show if team has categories configured */}
+        {allowedCategories.length > 0 && (
+          <FormControl sx={{ minWidth: 200 }}>
+            <InputLabel>Age Category</InputLabel>
+            <Select
+              value={categoryFilter}
+              label="Age Category"
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              <MenuItem value="">
+                <em>All Categories</em>
+              </MenuItem>
+              {allowedCategories.map((category) => (
+                <MenuItem key={category} value={category}>
+                  {category}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
       </Box>
 
       <TableContainer component={Paper}>
@@ -146,25 +212,41 @@ export const Leaderboard: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {data.map((row) => (
-              <TableRow
-                key={row.rank}
-                sx={{
-                  '&:nth-of-type(odd)': { backgroundColor: 'action.hover' },
-                  '&:last-child td, &:last-child th': { border: 0 },
-                }}
-              >
-                <TableCell component="th" scope="row" sx={{ fontWeight: 600 }}>
-                  #{row.rank}
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <CircularProgress />
                 </TableCell>
-                <TableCell>{row.playerName}</TableCell>
-                <TableCell>{row.position}</TableCell>
-                <TableCell align="right">{row.scoreAvg}</TableCell>
-                <TableCell align="right">{row.compliancePct}%</TableCell>
-                <TableCell align="right">{row.attendancePct}%</TableCell>
-                <TableCell align="right">{row.freeSharePct}%</TableCell>
               </TableRow>
-            ))}
+            ) : data.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <Typography color="text.secondary">
+                    {t('leaderboard.noData')}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : (
+              data.map((row) => (
+                <TableRow
+                  key={row.userId}
+                  sx={{
+                    '&:nth-of-type(odd)': { backgroundColor: 'action.hover' },
+                    '&:last-child td, &:last-child th': { border: 0 },
+                  }}
+                >
+                  <TableCell component="th" scope="row" sx={{ fontWeight: 600 }}>
+                    #{row.rank}
+                  </TableCell>
+                  <TableCell>{row.playerName}</TableCell>
+                  <TableCell>{row.position}</TableCell>
+                  <TableCell align="right">{row.totalPoints.toFixed(1)}</TableCell>
+                  <TableCell align="right">{row.compliancePct}%</TableCell>
+                  <TableCell align="right">{row.attendancePct}%</TableCell>
+                  <TableCell align="right">{row.freeSharePct}%</TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </TableContainer>
