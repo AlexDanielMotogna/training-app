@@ -17,6 +17,21 @@ import {
   IconButton,
   Tooltip,
   Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -27,10 +42,24 @@ import ImageIcon from '@mui/icons-material/Image';
 import SettingsIcon from '@mui/icons-material/Settings';
 import InfoIcon from '@mui/icons-material/Info';
 import SportsIcon from '@mui/icons-material/Sports';
+import PeopleIcon from '@mui/icons-material/People';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import DeleteIcon from '@mui/icons-material/Delete';
+import SendIcon from '@mui/icons-material/Send';
 import { useOrganization, useOrgPermission } from '../contexts/OrganizationContext';
 import { useI18n } from '../i18n/I18nProvider';
 import { toastService } from '../services/toast';
 import { getAuthToken } from '../services/api';
+import {
+  getOrganizationMembers,
+  getOrganizationInvitations,
+  inviteMember,
+  resendInvitation,
+  cancelInvitation,
+  removeMember,
+  type OrganizationMember,
+  type Invitation,
+} from '../services/members';
 
 const DEFAULT_LOGO = '/teamtraining-logo.svg';
 
@@ -77,6 +106,15 @@ export const OrganizationSettings: React.FC = () => {
   const [logoUrl, setLogoUrl] = useState('');
   const [previewLogo, setPreviewLogo] = useState(DEFAULT_LOGO);
   const [seasonPhase, setSeasonPhase] = useState<'off-season' | 'pre-season' | 'in-season' | 'post-season'>('off-season');
+
+  // Members state
+  const [members, setMembers] = useState<OrganizationMember[]>([]);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<'admin' | 'coach' | 'player'>('player');
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
 
   // File input refs
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -196,6 +234,112 @@ export const OrganizationSettings: React.FC = () => {
     }
   };
 
+  // Load members and invitations when Members tab is active
+  useEffect(() => {
+    if (activeTab === 3 && organization) {
+      loadMembersAndInvitations();
+    }
+  }, [activeTab, organization]);
+
+  const loadMembersAndInvitations = async () => {
+    if (!organization) return;
+
+    setIsLoadingMembers(true);
+    try {
+      const [membersData, invitationsData] = await Promise.all([
+        getOrganizationMembers(organization.id),
+        getOrganizationInvitations(organization.id),
+      ]);
+      setMembers(membersData);
+      setInvitations(invitationsData);
+    } catch (error) {
+      console.error('Failed to load members:', error);
+      toastService.error('Failed to load members');
+    } finally {
+      setIsLoadingMembers(false);
+    }
+  };
+
+  const handleSendInvite = async () => {
+    if (!organization || !inviteEmail || !inviteRole) {
+      toastService.error(t('orgSettings.invite.errors.emailRequired'));
+      return;
+    }
+
+    setIsSendingInvite(true);
+    try {
+      await inviteMember(organization.id, {
+        email: inviteEmail,
+        role: inviteRole,
+      });
+
+      toastService.success(t('orgSettings.invite.sent'));
+      setInviteModalOpen(false);
+      setInviteEmail('');
+      setInviteRole('player');
+
+      // Reload invitations
+      await loadMembersAndInvitations();
+    } catch (error: any) {
+      console.error('Failed to send invite:', error);
+      if (error.message.includes('already a member')) {
+        toastService.error(t('orgSettings.invite.errors.alreadyMember'));
+      } else if (error.message.includes('already been sent')) {
+        toastService.error(t('orgSettings.invite.errors.alreadyInvited'));
+      } else {
+        toastService.error(t('orgSettings.invite.errors.failed'));
+      }
+    } finally {
+      setIsSendingInvite(false);
+    }
+  };
+
+  const handleResendInvitation = async (invitationId: string) => {
+    if (!organization) return;
+
+    try {
+      await resendInvitation(organization.id, invitationId);
+      toastService.success(t('orgSettings.invitations.resent'));
+    } catch (error) {
+      console.error('Failed to resend invitation:', error);
+      toastService.error('Failed to resend invitation');
+    }
+  };
+
+  const handleCancelInvitation = async (invitationId: string) => {
+    if (!organization) return;
+
+    try {
+      await cancelInvitation(organization.id, invitationId);
+      toastService.success(t('orgSettings.invitations.cancelled'));
+      await loadMembersAndInvitations();
+    } catch (error) {
+      console.error('Failed to cancel invitation:', error);
+      toastService.error('Failed to cancel invitation');
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!organization) return;
+
+    if (!window.confirm(t('orgSettings.members.confirmRemove'))) {
+      return;
+    }
+
+    try {
+      await removeMember(organization.id, memberId);
+      toastService.success(t('orgSettings.members.removed'));
+      await loadMembersAndInvitations();
+    } catch (error) {
+      console.error('Failed to remove member:', error);
+      toastService.error('Failed to remove member');
+    }
+  };
+
+  const formatRole = (role: string) => {
+    return t(`orgSettings.members.roles.${role}`);
+  };
+
   if (!hasOrganization) {
     return (
       <Container maxWidth="md" sx={{ py: 4 }}>
@@ -285,6 +429,11 @@ export const OrganizationSettings: React.FC = () => {
             icon={<ImageIcon />}
             iconPosition="start"
             label={t('orgSettings.tabs.logo')}
+          />
+          <Tab
+            icon={<PeopleIcon />}
+            iconPosition="start"
+            label={t('orgSettings.tabs.members')}
           />
         </Tabs>
 
@@ -592,6 +741,164 @@ export const OrganizationSettings: React.FC = () => {
           </Box>
         </TabPanel>
 
+        {/* Members Tab */}
+        <TabPanel value={activeTab} index={3}>
+          <Box sx={{ px: 3 }}>
+            {isLoadingMembers ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <>
+                {/* Members Section */}
+                <Box sx={{ mb: 4 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Box>
+                      <Typography variant="h6">{t('orgSettings.members.title')}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {t('orgSettings.members.subtitle')}
+                      </Typography>
+                    </Box>
+                    <Button
+                      variant="contained"
+                      startIcon={<PersonAddIcon />}
+                      onClick={() => setInviteModalOpen(true)}
+                    >
+                      {t('orgSettings.members.inviteButton')}
+                    </Button>
+                  </Box>
+
+                  <TableContainer component={Paper} variant="outlined">
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>{t('orgSettings.members.name')}</TableCell>
+                          <TableCell>{t('orgSettings.members.email')}</TableCell>
+                          <TableCell>{t('orgSettings.members.role')}</TableCell>
+                          <TableCell>{t('orgSettings.members.joinedAt')}</TableCell>
+                          <TableCell align="right">{t('orgSettings.members.actions')}</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {members.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                              {t('orgSettings.members.noMembers')}
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          members.map((member) => (
+                            <TableRow key={member.id}>
+                              <TableCell>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Avatar
+                                    src={member.user.profilePicture}
+                                    sx={{ width: 32, height: 32 }}
+                                  >
+                                    {member.user.firstName.charAt(0)}
+                                  </Avatar>
+                                  <Typography variant="body2">
+                                    {member.user.firstName} {member.user.lastName}
+                                  </Typography>
+                                </Box>
+                              </TableCell>
+                              <TableCell>{member.user.email}</TableCell>
+                              <TableCell>
+                                <Chip
+                                  label={formatRole(member.role)}
+                                  size="small"
+                                  color={member.role === 'owner' ? 'primary' : 'default'}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                {new Date(member.joinedAt).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell align="right">
+                                {member.role !== 'owner' && (
+                                  <Tooltip title={t('orgSettings.members.remove')}>
+                                    <IconButton
+                                      size="small"
+                                      color="error"
+                                      onClick={() => handleRemoveMember(member.id)}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
+
+                {/* Pending Invitations Section */}
+                {invitations.length > 0 && (
+                  <Box>
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="h6">{t('orgSettings.invitations.title')}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {t('orgSettings.invitations.subtitle')}
+                      </Typography>
+                    </Box>
+
+                    <TableContainer component={Paper} variant="outlined">
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>{t('orgSettings.invitations.email')}</TableCell>
+                            <TableCell>{t('orgSettings.invitations.role')}</TableCell>
+                            <TableCell>{t('orgSettings.invitations.expires')}</TableCell>
+                            <TableCell align="right">{t('orgSettings.invitations.actions')}</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {invitations.map((invitation) => (
+                            <TableRow key={invitation.id}>
+                              <TableCell>{invitation.email}</TableCell>
+                              <TableCell>
+                                <Chip
+                                  label={formatRole(invitation.role)}
+                                  size="small"
+                                  variant="outlined"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                {new Date(invitation.expiresAt).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell align="right">
+                                <Tooltip title={t('orgSettings.invitations.resend')}>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleResendInvitation(invitation.id)}
+                                  >
+                                    <SendIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title={t('orgSettings.invitations.cancel')}>
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={() => handleCancelInvitation(invitation.id)}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Box>
+                )}
+              </>
+            )}
+          </Box>
+        </TabPanel>
+
         {/* Action Buttons */}
         <Divider />
         <Box sx={{ p: 3, display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
@@ -613,6 +920,62 @@ export const OrganizationSettings: React.FC = () => {
           </Button>
         </Box>
       </Card>
+
+      {/* Invite Member Modal */}
+      <Dialog
+        open={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>{t('orgSettings.invite.title')}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              fullWidth
+              label={t('orgSettings.invite.email')}
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder={t('orgSettings.invite.emailPlaceholder')}
+              disabled={isSendingInvite}
+            />
+
+            <FormControl fullWidth disabled={isSendingInvite}>
+              <InputLabel>{t('orgSettings.invite.role')}</InputLabel>
+              <Select
+                value={inviteRole}
+                label={t('orgSettings.invite.role')}
+                onChange={(e) => setInviteRole(e.target.value as any)}
+              >
+                <MenuItem value="player">{formatRole('player')}</MenuItem>
+                <MenuItem value="coach">{formatRole('coach')}</MenuItem>
+                <MenuItem value="admin">{formatRole('admin')}</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setInviteModalOpen(false);
+              setInviteEmail('');
+              setInviteRole('player');
+            }}
+            disabled={isSendingInvite}
+          >
+            {t('orgSettings.invite.cancel')}
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSendInvite}
+            disabled={isSendingInvite || !inviteEmail}
+            startIcon={isSendingInvite ? <CircularProgress size={20} /> : <SendIcon />}
+          >
+            {isSendingInvite ? t('orgSettings.invite.sending') : t('orgSettings.invite.send')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

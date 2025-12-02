@@ -486,4 +486,350 @@ router.delete('/:id/logo', requireTenant, requireOrgAdmin, async (req, res) => {
   }
 });
 
+// ========================================
+// MEMBER MANAGEMENT ENDPOINTS
+// ========================================
+
+// GET /api/organizations/:id/members - Get all members (admin+)
+router.get('/:id/members', requireTenant, requireOrgAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (req.tenant!.organizationId !== id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const members = await prisma.organizationMember.findMany({
+      where: { organizationId: id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            profilePicture: true,
+          },
+        },
+      },
+      orderBy: [
+        { role: 'asc' }, // owner, admin, coach, player
+        { joinedAt: 'desc' },
+      ],
+    });
+
+    res.json(members);
+  } catch (error) {
+    console.error('[ORGANIZATIONS] Get members error:', error);
+    res.status(500).json({ error: 'Failed to fetch members' });
+  }
+});
+
+// GET /api/organizations/:id/invitations - Get pending invitations (admin+)
+router.get('/:id/invitations', requireTenant, requireOrgAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (req.tenant!.organizationId !== id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const invitations = await prisma.invitation.findMany({
+      where: {
+        organizationId: id,
+        acceptedAt: null, // Only pending invitations
+        expiresAt: { gt: new Date() }, // Not expired
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json(invitations);
+  } catch (error) {
+    console.error('[ORGANIZATIONS] Get invitations error:', error);
+    res.status(500).json({ error: 'Failed to fetch invitations' });
+  }
+});
+
+// POST /api/organizations/:id/members/invite - Invite new member (admin+)
+const inviteMemberSchema = z.object({
+  email: z.string().email(),
+  role: z.enum(['admin', 'coach', 'player']),
+  teamIds: z.array(z.string()).optional().default([]),
+});
+
+router.post('/:id/members/invite', requireTenant, requireOrgAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const body = inviteMemberSchema.parse(req.body);
+
+    if (req.tenant!.organizationId !== id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Check if user is already a member
+    const existingUser = await prisma.user.findUnique({
+      where: { email: body.email },
+    });
+
+    if (existingUser) {
+      const existingMember = await prisma.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: id,
+            userId: existingUser.id,
+          },
+        },
+      });
+
+      if (existingMember) {
+        return res.status(400).json({ error: 'User is already a member of this organization' });
+      }
+    }
+
+    // Check if there's already a pending invitation
+    const existingInvitation = await prisma.invitation.findFirst({
+      where: {
+        organizationId: id,
+        email: body.email,
+        acceptedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (existingInvitation) {
+      return res.status(400).json({ error: 'An invitation has already been sent to this email' });
+    }
+
+    // Get organization details for email
+    const organization = await prisma.organization.findUnique({
+      where: { id },
+      select: { name: true },
+    });
+
+    if (!organization) {
+      return res.status(404).json({ error: 'Organization not found' });
+    }
+
+    // Generate invitation token
+    const crypto = await import('crypto');
+    const token = crypto.randomBytes(32).toString('hex');
+
+    // Create invitation (expires in 7 days)
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    const invitation = await prisma.invitation.create({
+      data: {
+        organizationId: id,
+        email: body.email,
+        role: body.role,
+        teamIds: body.teamIds,
+        token,
+        expiresAt,
+        invitedBy: req.user!.id,
+      },
+    });
+
+    // Send invitation email
+    const { sendInvitationEmail } = await import('../utils/email.js');
+    await sendInvitationEmail({
+      email: body.email,
+      organizationName: organization.name,
+      inviterName: `${req.user!.firstName} ${req.user!.lastName}`,
+      role: body.role,
+      invitationToken: token,
+    });
+
+    console.log(`[ORGANIZATIONS] Invitation sent to ${body.email} for ${id}`);
+    res.status(201).json(invitation);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    console.error('[ORGANIZATIONS] Invite member error:', error);
+    res.status(500).json({ error: 'Failed to send invitation' });
+  }
+});
+
+// POST /api/organizations/:id/invitations/:invitationId/resend - Resend invitation (admin+)
+router.post('/:id/invitations/:invitationId/resend', requireTenant, requireOrgAdmin, async (req, res) => {
+  try {
+    const { id, invitationId } = req.params;
+
+    if (req.tenant!.organizationId !== id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const invitation = await prisma.invitation.findFirst({
+      where: {
+        id: invitationId,
+        organizationId: id,
+        acceptedAt: null,
+      },
+    });
+
+    if (!invitation) {
+      return res.status(404).json({ error: 'Invitation not found' });
+    }
+
+    // Update expiration date
+    const newExpiresAt = new Date();
+    newExpiresAt.setDate(newExpiresAt.getDate() + 7);
+
+    await prisma.invitation.update({
+      where: { id: invitationId },
+      data: { expiresAt: newExpiresAt },
+    });
+
+    // Get organization details
+    const organization = await prisma.organization.findUnique({
+      where: { id },
+      select: { name: true },
+    });
+
+    if (!organization) {
+      return res.status(404).json({ error: 'Organization not found' });
+    }
+
+    // Resend email
+    const { sendInvitationEmail } = await import('../utils/email.js');
+    await sendInvitationEmail({
+      email: invitation.email,
+      organizationName: organization.name,
+      inviterName: `${req.user!.firstName} ${req.user!.lastName}`,
+      role: invitation.role,
+      invitationToken: invitation.token,
+    });
+
+    console.log(`[ORGANIZATIONS] Invitation resent to ${invitation.email} for ${id}`);
+    res.json({ message: 'Invitation resent successfully' });
+  } catch (error) {
+    console.error('[ORGANIZATIONS] Resend invitation error:', error);
+    res.status(500).json({ error: 'Failed to resend invitation' });
+  }
+});
+
+// DELETE /api/organizations/:id/invitations/:invitationId - Cancel invitation (admin+)
+router.delete('/:id/invitations/:invitationId', requireTenant, requireOrgAdmin, async (req, res) => {
+  try {
+    const { id, invitationId } = req.params;
+
+    if (req.tenant!.organizationId !== id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    await prisma.invitation.delete({
+      where: {
+        id: invitationId,
+        organizationId: id,
+      },
+    });
+
+    console.log(`[ORGANIZATIONS] Invitation ${invitationId} cancelled for ${id}`);
+    res.json({ message: 'Invitation cancelled successfully' });
+  } catch (error) {
+    console.error('[ORGANIZATIONS] Cancel invitation error:', error);
+    res.status(500).json({ error: 'Failed to cancel invitation' });
+  }
+});
+
+// PATCH /api/organizations/:id/members/:memberId - Update member role/permissions (admin+)
+const updateMemberSchema = z.object({
+  role: z.enum(['admin', 'coach', 'player']).optional(),
+  canManageMembers: z.boolean().optional(),
+  canManageContent: z.boolean().optional(),
+  canManageBilling: z.boolean().optional(),
+  canManageSettings: z.boolean().optional(),
+});
+
+router.patch('/:id/members/:memberId', requireTenant, requireOrgAdmin, async (req, res) => {
+  try {
+    const { id, memberId } = req.params;
+    const body = updateMemberSchema.parse(req.body);
+
+    if (req.tenant!.organizationId !== id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const member = await prisma.organizationMember.findFirst({
+      where: {
+        id: memberId,
+        organizationId: id,
+      },
+    });
+
+    if (!member) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    // Prevent changing owner role
+    if (member.role === 'owner') {
+      return res.status(403).json({ error: 'Cannot modify organization owner' });
+    }
+
+    // Only owner can change roles or grant admin permissions
+    if (body.role || body.canManageMembers || body.canManageBilling) {
+      if (req.tenant!.organizationRole !== 'owner') {
+        return res.status(403).json({ error: 'Only organization owner can change roles or grant admin permissions' });
+      }
+    }
+
+    const updated = await prisma.organizationMember.update({
+      where: { id: memberId },
+      data: body,
+    });
+
+    console.log(`[ORGANIZATIONS] Member ${memberId} updated in ${id}`);
+    res.json(updated);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    console.error('[ORGANIZATIONS] Update member error:', error);
+    res.status(500).json({ error: 'Failed to update member' });
+  }
+});
+
+// DELETE /api/organizations/:id/members/:memberId - Remove member (admin+)
+router.delete('/:id/members/:memberId', requireTenant, requireOrgAdmin, async (req, res) => {
+  try {
+    const { id, memberId } = req.params;
+
+    if (req.tenant!.organizationId !== id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const member = await prisma.organizationMember.findFirst({
+      where: {
+        id: memberId,
+        organizationId: id,
+      },
+    });
+
+    if (!member) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    // Prevent removing owner
+    if (member.role === 'owner') {
+      return res.status(403).json({ error: 'Cannot remove organization owner' });
+    }
+
+    // Prevent removing yourself
+    if (member.userId === req.user!.id) {
+      return res.status(403).json({ error: 'Cannot remove yourself from the organization' });
+    }
+
+    await prisma.organizationMember.delete({
+      where: { id: memberId },
+    });
+
+    console.log(`[ORGANIZATIONS] Member ${memberId} removed from ${id}`);
+    res.json({ message: 'Member removed successfully' });
+  } catch (error) {
+    console.error('[ORGANIZATIONS] Remove member error:', error);
+    res.status(500).json({ error: 'Failed to remove member' });
+  }
+});
+
 export default router;

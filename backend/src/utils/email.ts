@@ -128,3 +128,83 @@ export async function sendWelcomeEmail(email: string, name: string): Promise<voi
     htmlContent,
   });
 }
+
+export interface InvitationEmailOptions {
+  email: string;
+  organizationName: string;
+  inviterName: string;
+  role: string;
+  invitationToken: string;
+}
+
+export async function sendInvitationEmail(options: InvitationEmailOptions): Promise<void> {
+  const { email, organizationName, inviterName, role, invitationToken } = options;
+  const inviteLink = `${FRONTEND_URL}/join?token=${invitationToken}`;
+
+  // Format role display
+  const roleDisplay = role.charAt(0).toUpperCase() + role.slice(1);
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #203731; color: white; padding: 20px; text-align: center; }
+        .content { padding: 30px; background-color: #f5f5f5; }
+        .button { display: inline-block; padding: 12px 30px; background-color: #FFB612; color: #203731; text-decoration: none; border-radius: 5px; font-weight: bold; }
+        .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+        .highlight { background-color: #fff; padding: 15px; border-left: 4px solid #FFB612; margin: 20px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>TeamTraining Invitation</h1>
+        </div>
+        <div class="content">
+          <h2>You're Invited!</h2>
+          <p><strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> on TeamTraining.</p>
+
+          <div class="highlight">
+            <p><strong>Organization:</strong> ${organizationName}</p>
+            <p><strong>Your Role:</strong> ${roleDisplay}</p>
+          </div>
+
+          <p>TeamTraining is a multi-sport training management platform where you can:</p>
+          <ul>
+            <li>Track training sessions and workouts</li>
+            <li>View performance metrics and progress</li>
+            <li>Access training plans and exercises</li>
+            <li>Collaborate with coaches and teammates</li>
+            <li>Monitor leaderboards and achievements</li>
+          </ul>
+
+          <p style="text-align: center; margin: 30px 0;">
+            <a href="${inviteLink}" class="button">Accept Invitation</a>
+          </p>
+
+          <p><strong>This invitation will expire in 7 days.</strong></p>
+          <p>If you already have an account, you'll be added to the organization. If not, you'll be able to create an account and join.</p>
+
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
+          <p style="font-size: 12px; color: #666;">
+            Or copy and paste this link into your browser:<br>
+            <a href="${inviteLink}">${inviteLink}</a>
+          </p>
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} TeamTraining. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await sendEmail({
+    to: email,
+    subject: `Invitation to join ${organizationName} on TeamTraining`,
+    htmlContent,
+  });
+}
