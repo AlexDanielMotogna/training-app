@@ -14,7 +14,8 @@ import {
 import { Visibility, VisibilityOff, LockReset } from '@mui/icons-material';
 import { useI18n } from '../i18n/I18nProvider';
 import { authService } from '../services/api';
-import RhinosLogo from '../assets/imgs/USR_Allgemein_Quard_Transparent.png';
+
+const DEFAULT_LOGO = '/teamtraining-logo.svg';
 
 export default function ResetPassword() {
   const { t } = useI18n();
@@ -91,8 +92,8 @@ export default function ResetPassword() {
           >
             <Box
               component="img"
-              src={RhinosLogo}
-              alt="Rhinos Logo"
+              src={DEFAULT_LOGO}
+              alt="teamTraining Logo"
               sx={{
                 width: 120,
                 height: 120,
@@ -131,8 +132,8 @@ export default function ResetPassword() {
           <Box sx={{ textAlign: 'center', mb: 3 }}>
             <Box
               component="img"
-              src={RhinosLogo}
-              alt="Rhinos Logo"
+              src={DEFAULT_LOGO}
+              alt="teamTraining Logo"
               sx={{
                 width: 120,
                 height: 120,

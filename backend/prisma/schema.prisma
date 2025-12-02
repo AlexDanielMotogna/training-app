@@ -8,6 +8,346 @@ datasource db {
 }
 
 // ========================================
+// PLATFORM - SPORTS CATALOG (Global)
+// ========================================
+
+model Sport {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  name              String   // "American Football"
+  slug              String   @unique // "american-football"
+  icon              String?  // Material UI icon name
+  isActive          Boolean  @default(true)
+  displayOrder      Int      @default(0)
+
+  // Translations
+  nameTranslations  Json     @default("{}") // { "es": "Fútbol Americano", "de": "American Football" }
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  positions         Position[]
+  ageCategories     AgeCategory[]
+  metrics           SportMetric[]
+  organizations     Organization[]
+}
+
+model Position {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  sportId           String   @db.ObjectId
+  name              String   // "Quarterback"
+  abbreviation      String   // "QB"
+  group             String?  // "Offense", "Defense"
+  displayOrder      Int      @default(0)
+
+  nameTranslations  Json     @default("{}")
+  groupTranslations Json     @default("{}")
+
+  sport             Sport    @relation(fields: [sportId], references: [id], onDelete: Cascade)
+
+  @@unique([sportId, abbreviation])
+  @@index([sportId])
+}
+
+model AgeCategory {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  sportId           String   @db.ObjectId
+  name              String   // "Under 15"
+  code              String   // "U15"
+  minAge            Int?
+  maxAge            Int?
+  displayOrder      Int      @default(0)
+
+  nameTranslations  Json     @default("{}")
+
+  sport             Sport    @relation(fields: [sportId], references: [id], onDelete: Cascade)
+  teams             Team[]
+
+  @@unique([sportId, code])
+  @@index([sportId])
+}
+
+model SportMetric {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  sportId           String   @db.ObjectId
+  name              String   // "40 Yard Dash"
+  unit              String   // "seconds", "inches", "reps"
+  type              String   // "time", "distance", "weight", "reps", "score"
+  isLowerBetter     Boolean  @default(false) // For time-based metrics
+  displayOrder      Int      @default(0)
+
+  nameTranslations  Json     @default("{}")
+
+  sport             Sport    @relation(fields: [sportId], references: [id], onDelete: Cascade)
+
+  @@unique([sportId, name])
+  @@index([sportId])
+}
+
+// ========================================
+// MULTI-TENANCY - ORGANIZATIONS
+// ========================================
+
+model Organization {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  name              String   // "Real Madrid CF"
+  slug              String   @unique // "real-madrid-cf" (for URLs)
+  sportId           String   @db.ObjectId
+
+  // Subscription & Billing
+  plan              String   @default("free") // free, starter, pro, enterprise
+  stripeCustomerId  String?  // Will be unique when set, but allows multiple nulls
+  subscriptionStatus String  @default("trialing") // trialing, active, past_due, canceled, incomplete
+  trialEndsAt       DateTime?
+
+  // Limits based on plan
+  maxMembers        Int      @default(15)  // Free: 15, Starter: 50, Pro: 200, Enterprise: unlimited
+  maxCoaches        Int      @default(2)   // Free: 2, Starter: 5, Pro: 20, Enterprise: unlimited
+  maxTeams          Int      @default(1)   // Free: 1, Starter: 3, Pro: 10, Enterprise: unlimited
+  maxStorageGB      Int      @default(1)   // Free: 1GB, Starter: 10GB, Pro: 50GB, Enterprise: 500GB
+
+  // Branding
+  logoUrl           String?
+  logoPublicId      String?  // Cloudinary public_id
+  faviconUrl        String?
+  faviconPublicId   String?  // Cloudinary public_id
+  primaryColor      String   @default("#1976d2")
+  secondaryColor    String   @default("#dc004e")
+  customDomain      String?  // Pro+: "training.realmadrid.com" (will be unique when set, but allows multiple nulls)
+
+  // Settings
+  timezone          String   @default("Europe/Madrid")
+  language          String   @default("en") // Default language
+  seasonPhase       String   @default("off-season") // off-season, pre-season, in-season, post-season
+  allowedFeatures   Json     @default("[]") // Feature flags based on plan
+
+  // AI Configuration (organization-wide)
+  aiApiKey          String?
+
+  // Metadata
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  createdBy         String   @db.ObjectId
+
+  // Relations
+  sport             Sport    @relation(fields: [sportId], references: [id])
+  teams             Team[]
+  members           OrganizationMember[]
+  invitations       Invitation[]
+  subscription      Subscription?
+  auditLogs         AuditLog[]
+
+  // Content (organization-scoped)
+  users             User[]
+  trainingSessions  TrainingSession[]
+  videos            Video[]
+  videoTags         VideoTag[]
+  exercises         Exercise[]
+  exerciseCategories ExerciseCategory[]
+  trainingTemplates TrainingTemplate[]
+  trainingTypes     TrainingType[]
+  blockInfos        BlockInfo[]
+  drills            Drill[]
+  drillCategories   DrillCategory[]
+  drillSessions     DrillTrainingSession[]
+  equipment         Equipment[]
+  matches           Match[]
+  pointsConfigs     PointsConfig[]
+  notifications     Notification[]
+
+  @@index([sportId])
+}
+
+model Team {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String   @db.ObjectId
+  name              String   // "Seniors", "Under 15 A"
+  ageCategoryId     String   @db.ObjectId
+
+  // Settings
+  isActive          Boolean  @default(true)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ageCategory       AgeCategory  @relation(fields: [ageCategoryId], references: [id])
+  members           TeamMember[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([ageCategoryId])
+}
+
+model OrganizationMember {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String   @db.ObjectId
+  userId            String   @db.ObjectId
+  role              String   // owner, admin, coach, player
+
+  // Permissions (granular control)
+  canManageMembers  Boolean  @default(false)
+  canManageContent  Boolean  @default(false)
+  canManageBilling  Boolean  @default(false)
+  canManageSettings Boolean  @default(false)
+
+  joinedAt          DateTime @default(now())
+  invitedBy         String?  @db.ObjectId
+
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([organizationId])
+}
+
+model TeamMember {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  teamId            String   @db.ObjectId
+  userId            String   @db.ObjectId
+  role              String   // head_coach, assistant_coach, player
+  positionId        String?  @db.ObjectId // Reference to Position
+  jerseyNumber      Int?
+
+  joinedAt          DateTime @default(now())
+  leftAt            DateTime?
+  isActive          Boolean  @default(true)
+
+  team              Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+  @@index([teamId])
+}
+
+// ========================================
+// SUBSCRIPTIONS & BILLING
+// ========================================
+
+model Subscription {
+  id                    String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId        String   @unique @db.ObjectId
+
+  // Stripe IDs
+  stripeSubscriptionId  String   @unique
+  stripePriceId         String
+  stripeProductId       String
+
+  // Status
+  status                String   // active, past_due, canceled, incomplete, trialing
+
+  // Billing cycle
+  currentPeriodStart    DateTime
+  currentPeriodEnd      DateTime
+  cancelAtPeriodEnd     Boolean  @default(false)
+  canceledAt            DateTime?
+
+  // Plan details
+  plan                  String   // free, starter, pro, enterprise
+  interval              String   // month, year
+  amount                Int      // in cents
+  currency              String   @default("eur")
+
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoices              Invoice[]
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Invoice {
+  id                    String   @id @default(auto()) @map("_id") @db.ObjectId
+  subscriptionId        String   @db.ObjectId
+  stripeInvoiceId       String   @unique
+
+  amount                Int      // in cents
+  currency              String
+  status                String   // paid, open, void, uncollectible
+  invoiceUrl            String?
+  invoicePdf            String?
+
+  periodStart           DateTime
+  periodEnd             DateTime
+  paidAt                DateTime?
+
+  subscription          Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  createdAt             DateTime @default(now())
+}
+
+model Invitation {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String   @db.ObjectId
+  email             String
+  role              String   // admin, coach, player
+  teamIds           String[] @db.ObjectId // Teams to join upon acceptance
+
+  token             String   @unique
+  expiresAt         DateTime
+  acceptedAt        DateTime?
+
+  invitedBy         String   @db.ObjectId
+
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt         DateTime @default(now())
+
+  @@unique([organizationId, email])
+}
+
+// ========================================
+// AUDIT & ANALYTICS
+// ========================================
+
+model AuditLog {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String   @db.ObjectId
+  userId            String?  @db.ObjectId
+
+  action            String   // create, update, delete, login, invite, etc.
+  resource          String   // user, team, template, workout, etc.
+  resourceId        String?
+
+  details           Json?    // Additional context
+  ipAddress         String?
+  userAgent         String?
+
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt         DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([userId])
+}
+
+model UsageMetrics {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId    String   @db.ObjectId
+  month             String   // "2025-01"
+
+  // Counts
+  activeMembers     Int      @default(0)
+  workoutsLogged    Int      @default(0)
+  trainingSessions  Int      @default(0)
+  videosWatched     Int      @default(0)
+  drillsCompleted   Int      @default(0)
+
+  // Storage
+  storageUsedBytes  BigInt   @default(0)
+
+  // API
+  apiCalls          Int      @default(0)
+
+  updatedAt         DateTime @updatedAt
+
+  @@unique([organizationId, month])
+  @@index([organizationId])
+}
+
+// ========================================
 // USERS & AUTHENTICATION
 // ========================================
 
@@ -16,20 +356,28 @@ model User {
   email         String   @unique
   passwordHash  String
   name          String
-  role          String   // 'player' | 'coach'
 
-  // Player-specific fields
+  // Multi-tenancy: Primary organization (can be member of multiple orgs)
+  organizationId String?  @db.ObjectId
+
+  // Platform role (for super-admins who manage the SaaS)
+  platformRole  String   @default("user") // user, support, admin, super_admin
+
+  // Legacy role field - now managed via OrganizationMember.role
+  role          String   @default("player") // 'player' | 'coach' (kept for backwards compatibility)
+
+  // Player-specific fields (moved to TeamMember for multi-team support, kept here for profile)
   jerseyNumber  Int?
   birthDate     String?  // ISO date string
   age           Int?
   weightKg      Float?
   heightCm      Float?
-  position      String?  // 'RB' | 'WR' | 'LB' | etc.
+  position      String?  // Legacy: now use TeamMember.positionId
   sex           String?  // 'male' | 'female'
-  ageCategory   String?  // Player's age category (e.g., 'U13', 'U15', 'Seniors')
+  ageCategory   String?  // Legacy: now determined by Team.ageCategoryId
 
-  // Coach-specific fields
-  coachCategories String[] @default([]) // Categories this coach manages (e.g., ['U13', 'U15'])
+  // Coach-specific fields (legacy - now use TeamMember assignments)
+  coachCategories String[] @default([])
 
   // Contact info
   phone         String?
@@ -44,7 +392,7 @@ model User {
   // Preferences
   preferredLanguage String @default("de") // 'de' | 'en'
 
-  // AI settings
+  // AI settings (user-specific override)
   aiCoachEnabled Boolean @default(false)
   aiApiKey       String?
 
@@ -56,12 +404,31 @@ model User {
   resetToken     String?
   resetTokenExpiry DateTime?
 
+  // Email verification
+  emailVerified    Boolean  @default(false)
+  emailVerifiedAt  DateTime?
+
+  // Activity tracking
+  lastLoginAt      DateTime?
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   // Relations
+  organization      Organization? @relation(fields: [organizationId], references: [id])
+  organizationMemberships OrganizationMember[]
+  teamMemberships   TeamMember[]
   sessionCreated    TrainingSession[]
   attendanceVotes   AttendancePollVote[]
+  workoutLogs       WorkoutLog[]
+  userPlans         UserPlan[]
+  workoutReports    WorkoutReport[]
+  testResults       TestResult[]
+  videoProgress     VideoProgress[]
+  notifications     Notification[]
+  playerWeeklyPoints PlayerWeeklyPoints[]
+
+  @@index([organizationId])
 }
 
 // ========================================
@@ -70,6 +437,8 @@ model User {
 
 model TrainingSession {
   id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId  // Tenant isolation
+  teamId          String?  @db.ObjectId  // Optional: specific team
   creatorId       String   @db.ObjectId
   creatorName     String
 
@@ -83,13 +452,17 @@ model TrainingSession {
   description     String?
 
   attendees       Json     // Array of {userId, userName, status: RSVPStatus}
-  // checkIns field removed - attendance is now tracked via AttendancePoll votes
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   creator         User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   polls           AttendancePoll[]
+
+  @@index([organizationId])
+  @@index([organizationId, date])
+  @@index([teamId])
 }
 
 // ========================================
@@ -130,14 +503,15 @@ model AttendancePollVote {
 // ========================================
 
 model Video {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  title       String
-  description String   @default("")
-  youtubeUrl  String
-  type        String   // 'position' | 'route' | 'coverage' | 'run'
-  status      String   @default("draft") // 'draft' | 'published'
-  level       String?  // 'intro' | 'intermediate' | 'advanced'
-  unit        String?  // 'Offense' | 'Defense' | 'Special Teams'
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId  // Tenant isolation
+  title           String
+  description     String   @default("")
+  youtubeUrl      String
+  type            String   // 'position' | 'route' | 'coverage' | 'run'
+  status          String   @default("draft") // 'draft' | 'published'
+  level           String?  // 'intro' | 'intermediate' | 'advanced'
+  unit            String?  // 'Offense' | 'Defense' | 'Special Teams'
 
   // Tags based on type
   positions   String[] @default([])
@@ -153,8 +527,11 @@ model Video {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@index([type])
-  @@index([status])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, type])
+  @@index([organizationId, status])
   @@index([createdBy])
 }
 
@@ -174,6 +551,8 @@ model VideoProgress {
 
   createdAt     DateTime @default(now())
 
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([userId, videoId])
   @@index([userId])
   @@index([videoId])
@@ -184,21 +563,25 @@ model VideoProgress {
 // ========================================
 
 model VideoTag {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  type      String   // 'position' | 'route' | 'coverage' | 'run'
-  name      String   // 'QB', 'Slant', 'Cover 2', 'Inside Zone'
-  order     Int      @default(0) // For custom ordering
-  isDefault Boolean  @default(false) // System defaults vs coach custom
-  createdBy String?  @db.ObjectId
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId  // Tenant isolation
+  type            String   // 'position' | 'route' | 'coverage' | 'run'
+  name            String   // 'QB', 'Slant', 'Cover 2', 'Inside Zone'
+  order           Int      @default(0) // For custom ordering
+  isDefault       Boolean  @default(false) // System defaults vs coach custom
+  createdBy       String?  @db.ObjectId
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  @@unique([type, name])
-  @@index([type, order])
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, type, name])
+  @@index([organizationId, type, order])
 }
 
 // ========================================
-// TEAM SETTINGS (Online)
+// TEAM SETTINGS (DEPRECATED - Now in Organization model)
+// Keeping for backwards compatibility during migration
 // ========================================
 
 model TeamSettings {
@@ -216,9 +599,6 @@ model TeamSettings {
   teamCategory   String   @default("principal") // 'juvenil' | 'principal' | 'reserves' | 'academy'
 
   // Age categories configuration (SaaS-ready: each team defines their own)
-  // Example: ['U8', 'U10', 'U13', 'U15', 'U17', 'U19', 'Seniors']
-  // Basketball: ['U12', 'U14', 'U16', 'U18', 'Senior']
-  // Handball: ['Minis', 'Cadets', 'Juniors', 'Seniors']
   allowedCategories Json @default("[]") // Array of category strings
 
   // Optional AI API key for team-wide AI features
@@ -226,6 +606,9 @@ model TeamSettings {
 
   updatedBy      String?  @db.ObjectId // Coach who last updated
   updatedAt      DateTime @updatedAt
+
+  // NOTE: This model is deprecated. New apps should use Organization model instead.
+  // Will be removed in future migration after data is moved to Organization.
 }
 
 // ========================================
@@ -233,15 +616,20 @@ model TeamSettings {
 // ========================================
 
 model PointsConfig {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  weeklyTarget  Int      @default(20)
-  maxDailyPoints Int?    @default(3)
-  categories    Json     // Array of PointCategory objects
-  colorScale    Json     // {low: string, medium: string, high: string}
-  updatedBy     String?
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId  // Tenant isolation
+  weeklyTarget    Int      @default(20)
+  maxDailyPoints  Int?     @default(3)
+  categories      Json     // Array of PointCategory objects
+  colorScale      Json     // {low: string, medium: string, high: string}
+  updatedBy       String?
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
 
 // ========================================
@@ -249,9 +637,11 @@ model PointsConfig {
 // ========================================
 
 model PlayerWeeklyPoints {
-  id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId         String   @db.ObjectId
-  week           String   // ISO week format: "2025-W03"
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId  // Tenant isolation
+  userId          String   @db.ObjectId
+  teamId          String?  @db.ObjectId  // Optional: for team-specific leaderboards
+  week            String   // ISO week format: "2025-W03"
 
   // Point totals
   totalPoints    Float    @default(0)
@@ -269,8 +659,11 @@ model PlayerWeeklyPoints {
   lastUpdated    DateTime @default(now())
   createdAt      DateTime @default(now())
 
-  @@unique([userId, week])
-  @@index([week])
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId, week])
+  @@index([organizationId, week])
+  @@index([organizationId, teamId, week])
   @@index([userId])
 }
 
@@ -279,35 +672,47 @@ model PlayerWeeklyPoints {
 // ========================================
 
 model ExerciseCategory {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  key       String   @unique  // Unique key (e.g., "strength", "speed", "cod")
-  nameEN    String   // English name
-  nameDE    String   // German translation
-  color     String   @default("#1976d2")  // Color for UI display
-  icon      String?  // Optional icon name for UI
-  active    Boolean  @default(true)  // Active/inactive flag
-  createdBy String?  @db.ObjectId  // Coach who created it (null for system categories)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String?  @db.ObjectId  // NULL = global/system category
+  key             String   // Unique key (e.g., "strength", "speed", "cod")
+  nameEN          String   // English name
+  nameDE          String   // German translation
+  color           String   @default("#1976d2")  // Color for UI display
+  icon            String?  // Optional icon name for UI
+  active          Boolean  @default(true)  // Active/inactive flag
+  isGlobal        Boolean  @default(false) // System-wide category
+  createdBy       String?  @db.ObjectId  // Coach who created it (null for system categories)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
 }
 
 model Exercise {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  name          String
-  category      String   // References ExerciseCategory.key (e.g., "strength", "speed")
-  youtubeUrl    String?  // YouTube URL
-  positionTags  String[] // ['RB', 'WR', 'LB', etc.] - empty array means all positions
-  muscleGroups  String[] // ['legs', 'chest', 'back', 'shoulders', 'arms', 'core', 'full-body']
-  isGlobal      Boolean  @default(true)  // Global exercises vs custom
-  createdBy     String?  @db.ObjectId    // Coach who created it (null for system exercises)
-  isCustom      Boolean  @default(false) // Custom exercise flag
-  descriptionEN String?
-  descriptionDE String?
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String?  @db.ObjectId  // NULL = global/system exercise
+  name            String
+  category        String   // References ExerciseCategory.key (e.g., "strength", "speed")
+  youtubeUrl      String?  // YouTube URL
+  positionTags    String[] // ['RB', 'WR', 'LB', etc.] - empty array means all positions
+  muscleGroups    String[] // ['legs', 'chest', 'back', 'shoulders', 'arms', 'core', 'full-body']
+  isGlobal        Boolean  @default(false) // Global (platform-wide) exercises
+  createdBy       String?  @db.ObjectId    // Coach who created it (null for system exercises)
+  isCustom        Boolean  @default(false) // Custom exercise flag
+  descriptionEN   String?
+  descriptionDE   String?
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  @@unique([name])
+  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([organizationId, category])
 }
 
 // ========================================
@@ -316,6 +721,8 @@ model Exercise {
 
 model TrainingTemplate {
   id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId   String   @db.ObjectId  // Tenant isolation
+  teamId           String?  @db.ObjectId  // Optional: team-specific template
   name             String
   trainingType     String   // TrainingType ID
   position         String?  // Legacy: Single position (backwards compatibility)
@@ -331,7 +738,12 @@ model TrainingTemplate {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   assignments      TrainingAssignment[]
+
+  @@index([organizationId])
+  @@index([organizationId, trainingType])
+  @@index([teamId])
 }
 
 // ========================================
@@ -361,6 +773,8 @@ model TrainingAssignment {
 
 model WorkoutLog {
   id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId       String   @db.ObjectId  // Tenant isolation
+  teamId               String?  @db.ObjectId  // Optional: team context
   userId               String   @db.ObjectId
   userName             String?
   date                 String   // ISO date when workout was completed
@@ -373,10 +787,19 @@ model WorkoutLog {
   planMetadata         Json?    // {totalExercises, totalTargetSets}
   completionPercentage Int?     // 0-100 completion percentage
 
+  // Points system
+  points               Float?   // Calculated points for this workout
+  pointsCategory       String?  // 'light' | 'moderate' | 'team' | 'intensive'
+
   createdAt            String   // ISO datetime when log was created
   syncedAt             DateTime @default(now()) // When synced to backend
 
-  @@index([userId, date])
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, userId, date])
+  @@index([organizationId, date])
+  @@index([teamId])
 }
 
 // ========================================
@@ -384,19 +807,23 @@ model WorkoutLog {
 // ========================================
 
 model UserPlan {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId        String   @db.ObjectId
-  name          String
-  trainingType  String   // 'strength_conditioning' | 'sprints_speed' | etc.
-  exercises     Json     // Array of PlanExercise objects
-  notes         String?
-  timesCompleted Int     @default(0)
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId  // Tenant isolation
+  userId          String   @db.ObjectId
+  name            String
+  trainingType    String   // 'strength_conditioning' | 'sprints_speed' | etc.
+  exercises       Json     // Array of PlanExercise objects
+  notes           String?
+  timesCompleted  Int      @default(0)
 
-  createdAt     String   // ISO datetime
-  updatedAt     String   // ISO datetime
-  syncedAt      DateTime @default(now())
+  createdAt       String   // ISO datetime
+  updatedAt       String   // ISO datetime
+  syncedAt        DateTime @default(now())
 
-  @@index([userId, createdAt])
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, userId, createdAt])
 }
 
 // ========================================
@@ -405,6 +832,7 @@ model UserPlan {
 
 model WorkoutReport {
   id                      String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId          String   @db.ObjectId  // Tenant isolation
   userId                  String   @db.ObjectId
   workoutTitle            String?  @default("")
   date                    String?  @default("")  // ISO date string (YYYY-MM-DD)
@@ -455,7 +883,10 @@ model WorkoutReport {
   createdAt               String?  @default("")  // ISO datetime
   syncedAt                DateTime @default(now())
 
-  @@index([userId, createdAt])
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, userId, createdAt])
 }
 
 // ========================================
@@ -463,15 +894,22 @@ model WorkoutReport {
 // ========================================
 
 model TrainingType {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  key       String   @unique // 'strength_conditioning' | 'sprints_speed' | 'cb_drills'
-  nameEN    String
-  nameDE    String
-  season    String   // 'in-season' | 'off-season' | 'pre-season'
-  active    Boolean  @default(true)
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String?  @db.ObjectId  // NULL = global/system type
+  key             String   // 'strength_conditioning' | 'sprints_speed' | 'cb_drills'
+  nameEN          String
+  nameDE          String
+  season          String   // 'in-season' | 'off-season' | 'pre-season' | 'all'
+  active          Boolean  @default(true)
+  isGlobal        Boolean  @default(false) // System-wide type
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
 }
 
 // ========================================
@@ -479,16 +917,20 @@ model TrainingType {
 // ========================================
 
 model BlockInfo {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  blockName     String
-  trainingType  String   // 'strength_conditioning' | 'sprints_speed'
-  infoText_en   String
-  infoText_de   String
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId  // Tenant isolation
+  blockName       String
+  trainingType    String   // 'strength_conditioning' | 'sprints_speed'
+  infoText_en     String
+  infoText_de     String
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  @@unique([blockName, trainingType])
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, blockName, trainingType])
+  @@index([organizationId])
 }
 
 // ========================================
@@ -496,20 +938,25 @@ model BlockInfo {
 // ========================================
 
 model Notification {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String   @db.ObjectId  // Recipient
-  type        String   // 'new_plan' | 'plan_updated' | 'new_session' | 'private_session' | 'attendance_poll'
-  title       String
-  message     String
-  read        Boolean  @default(false)
-  actionUrl   String?  // Optional URL to navigate to
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId  // Tenant isolation
+  userId          String   @db.ObjectId  // Recipient
+  type            String   // 'new_plan' | 'plan_updated' | 'new_session' | 'private_session' | 'attendance_poll'
+  title           String
+  message         String
+  read            Boolean  @default(false)
+  actionUrl       String?  // Optional URL to navigate to
 
   // Optional metadata
-  referenceId String?  // ID of related entity (template, session, poll, etc.)
+  referenceId     String?  // ID of related entity (template, session, poll, etc.)
 
-  createdAt   DateTime @default(now())
+  createdAt       DateTime @default(now())
 
-  @@index([userId, read, createdAt])
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, userId, read, createdAt])
+  @@index([userId])
 }
 
 // ========================================
@@ -517,36 +964,40 @@ model Notification {
 // ========================================
 
 model TestResult {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String   @db.ObjectId
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId  // Tenant isolation
+  userId          String   @db.ObjectId
 
   // Test type: 'strength' | 'speed' | 'power' | 'agility'
-  testType  String
+  testType        String
 
   // Test date
-  dateISO   String   // ISO date string (YYYY-MM-DD)
+  dateISO         String   // ISO date string (YYYY-MM-DD)
 
   // Test data stored as JSON (different structure per test type)
   // For strength: { byTest: [], bySegment: {}, strengthIndex: number, label: string, tier: string }
   // For speed: { byTest: [], speedScore: number, label: string, tier: string }
   // For power: { byTest: [], powerScore: number, label: string, tier: string }
   // For agility: { byTest: [], agilityScore: number, label: string, tier: string }
-  testData  Json
+  testData        Json
 
   // Overall score (0-100) for quick filtering/sorting
-  score     Int
+  score           Int
 
   // Tier: 'ELITE' | 'ADVANCED' | 'INTERMEDIATE' | 'BEGINNER'
-  tier      String
+  tier            String
 
   // Whether this is the current/latest test for this user+type
-  isCurrent Boolean  @default(true)
+  isCurrent       Boolean  @default(true)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  @@index([userId, testType, isCurrent])
-  @@index([userId, dateISO])
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, userId, testType, isCurrent])
+  @@index([organizationId, userId, dateISO])
+  @@index([organizationId])
 }
 
 // ========================================
@@ -554,38 +1005,42 @@ model TestResult {
 // ========================================
 
 model Drill {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  name          String
-  category      String   // References DrillCategory.key (e.g., "athletik", "fundamentals")
-  description   String
-  coachingPoints String
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId  // Tenant isolation
+  name            String
+  category        String   // References DrillCategory.key (e.g., "athletik", "fundamentals")
+  description     String
+  coachingPoints  String
 
   // Personnel requirements
-  players       Int      @default(0)  // Number of players needed
-  coaches       Int      @default(0)  // Number of coaches needed
-  dummies       Int      @default(0)  // Number of dummies needed
+  players         Int      @default(0)  // Number of players needed
+  coaches         Int      @default(0)  // Number of coaches needed
+  dummies         Int      @default(0)  // Number of dummies needed
 
   // Equipment needed (stored as JSON array)
   // [{equipmentId: string, quantity: number}]
-  equipment     Json     @default("[]")
+  equipment       Json     @default("[]")
 
   // Resources
-  sketchUrl     String?  // Cloudinary URL for drill diagram/sketch
-  sketchPublicId String? // Cloudinary public_id for deletion
-  videoUrl      String?  // YouTube video URL
-  imageUrl      String?  // Cloudinary URL for drill thumbnail image
-  imagePublicId String?  // Cloudinary public_id for image deletion
+  sketchUrl       String?  // Cloudinary URL for drill diagram/sketch
+  sketchPublicId  String?  // Cloudinary public_id for deletion
+  videoUrl        String?  // YouTube video URL
+  imageUrl        String?  // Cloudinary URL for drill thumbnail image
+  imagePublicId   String?  // Cloudinary public_id for image deletion
 
   // Organization
-  difficulty    String   // 'basic' | 'advanced' | 'complex'
-  trainingContext String? // 'Warm-up' | 'Individual' | 'Team Period' | etc.
+  difficulty      String   // 'basic' | 'advanced' | 'complex'
+  trainingContext String?  // 'Warm-up' | 'Individual' | 'Team Period' | etc.
 
   // Metadata
-  createdBy     String   @db.ObjectId
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdBy       String   @db.ObjectId
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  @@index([category, difficulty])
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, category, difficulty])
   @@index([createdBy])
 }
 
@@ -594,17 +1049,23 @@ model Drill {
 // ========================================
 
 model Equipment {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  name        String   @unique
-  quantity    Int?     // Total quantity available (optional)
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId  // Tenant isolation
+  name            String
+  quantity        Int?     // Total quantity available (optional)
 
   // Image
-  imageUrl    String?  // Cloudinary URL for equipment photo
-  imagePublicId String? // Cloudinary public_id for deletion
+  imageUrl        String?  // Cloudinary URL for equipment photo
+  imagePublicId   String?  // Cloudinary public_id for deletion
 
   // Metadata
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
 }
 
 // ========================================
@@ -612,14 +1073,20 @@ model Equipment {
 // ========================================
 
 model DrillCategory {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  key       String   @unique  // Unique key (e.g., "athletik", "fundamentals", "offense")
-  name      String   @unique  // Category name (e.g., "Offense", "Defense", "Team")
-  nameDE    String?  // German translation
-  color     String   @default("#1976d2")  // Color for UI display
-  createdBy String   @db.ObjectId
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId  // Tenant isolation
+  key             String   // Unique key (e.g., "athletik", "fundamentals", "offense")
+  name            String   // Category name (e.g., "Offense", "Defense", "Team")
+  nameDE          String?  // German translation
+  color           String   @default("#1976d2")  // Color for UI display
+  createdBy       String   @db.ObjectId
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
 }
 
 // ========================================
@@ -627,41 +1094,53 @@ model DrillCategory {
 // ========================================
 
 model DrillTrainingSession {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  name      String   // Session name (e.g., "Week 3 - Offense Drills")
-  date      String   // Date of the session (YYYY-MM-DD format)
-  drills    String[] // Array of drill IDs
-  notes     String?  // Optional notes for the session
-  createdBy String   @db.ObjectId
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId  // Tenant isolation
+  teamId          String?  @db.ObjectId  // Optional: team-specific session
+  name            String   // Session name (e.g., "Week 3 - Offense Drills")
+  date            String   // Date of the session (YYYY-MM-DD format)
+  drills          String[] // Array of drill IDs
+  notes           String?  // Optional notes for the session
+  createdBy       String   @db.ObjectId
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, date])
+  @@index([teamId])
   @@index([createdBy])
-  @@index([date])
 }
 
 // Match/Game model for Spielplan (Season Schedule)
 model Match {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  spielnummer  String   @unique // Game number (e.g., "25201")
-  homeTeam     String   // Home team name
-  awayTeam     String   // Away team name
-  date         String   // Date of match (YYYY-MM-DD format)
-  kickoff      String   // Kickoff time (HH:mm format)
-  spielort     String   // Location/Stadium
-  week         Int      // Week number (1-8)
-  weekLabel    String   // Week label (e.g., "Woche 1 - 29./30.März")
-  conference   String   // Conference (A, B, C, D)
-  homeScore    Int?     // Home team score (null if not played yet)
-  awayScore    Int?     // Away team score (null if not played yet)
-  isRelegation Boolean  @default(false) // Relegation game
-  isSemifinal  Boolean  @default(false) // Semifinal
-  isIronBowl   Boolean  @default(false) // Iron Bowl (Championship)
-  createdBy    String   @db.ObjectId
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String   @db.ObjectId  // Tenant isolation
+  teamId          String?  @db.ObjectId  // Optional: specific team's match
+  spielnummer     String   // Game number (e.g., "25201")
+  homeTeam        String   // Home team name
+  awayTeam        String   // Away team name
+  date            String   // Date of match (YYYY-MM-DD format)
+  kickoff         String   // Kickoff time (HH:mm format)
+  spielort        String   // Location/Stadium
+  week            Int      // Week number (1-8)
+  weekLabel       String   // Week label (e.g., "Woche 1 - 29./30.März")
+  conference      String   // Conference (A, B, C, D)
+  homeScore       Int?     // Home team score (null if not played yet)
+  awayScore       Int?     // Away team score (null if not played yet)
+  isRelegation    Boolean  @default(false) // Relegation game
+  isSemifinal     Boolean  @default(false) // Semifinal
+  isIronBowl      Boolean  @default(false) // Iron Bowl (Championship)
+  createdBy       String   @db.ObjectId
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  @@index([date])
-  @@index([week])
-  @@index([conference])
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, spielnummer])
+  @@index([organizationId])
+  @@index([organizationId, date])
+  @@index([organizationId, week])
+  @@index([teamId])
 }

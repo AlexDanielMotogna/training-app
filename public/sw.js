@@ -1,5 +1,5 @@
 /**
- * Service Worker for Rhinos Training App
+ * Service Worker for TeamTrainer App
  * Handles notifications and offline caching
  */
 
@@ -34,7 +34,7 @@ self.addEventListener('push', (event) => {
   console.log('[Service Worker] Push received:', event);
 
   const data = event.data ? event.data.json() : {};
-  const title = data.title || 'Rhinos Training';
+  const title = data.title || 'TeamTrainer';
   const options = {
     body: data.body || 'You have a new notification',
     icon: data.icon || '/vite.svg',

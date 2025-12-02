@@ -30,7 +30,7 @@ export type TeamCategory =
  * Team branding configuration
  */
 export interface TeamBranding {
-  appName: string;          // Application name (e.g., "Rhinos Training")
+  appName: string;          // Application name (e.g., "TeamTrainer")
   logoUrl?: string;         // Main logo URL/path
   faviconUrl?: string;      // Favicon URL/path
   primaryColor?: string;    // Primary theme color (hex)
@@ -55,8 +55,8 @@ export interface TeamSettings {
  * Default team branding
  */
 export const DEFAULT_TEAM_BRANDING: TeamBranding = {
-  appName: 'Rhinos Training',
-  logoUrl: '/USR_Allgemein_Quard_Transparent.png',
+  appName: 'teamTraining',
+  logoUrl: '/teamtraining-logo.svg',
   primaryColor: '#203731',  // Packers Green
   secondaryColor: '#FFB612', // Packers Gold
 };

@@ -1,4 +1,4 @@
-# Rhinos Training App
+# TeamTrainer App
 
 A mobile-first American Football training application built with React, TypeScript, and Material UI (MUI v5).
 
@@ -143,4 +143,4 @@ The app supports English (EN) and German (DE) with full translation coverage. La
 
 ## License
 
-Private - Rhinos Training Internal Use
+Private - TeamTrainer Internal Use

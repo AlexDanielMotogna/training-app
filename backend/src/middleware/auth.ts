@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, JWTPayload } from '../utils/jwt.js';
 
-// Extend Express Request type
+// Extend Express Request type (tenant context is declared in tenant.ts)
 declare global {
   namespace Express {
     interface Request {

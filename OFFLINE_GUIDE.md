@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Rhinos Training App is built with **offline-first architecture**, allowing coaches and players to use the app even without internet connection. All data is synchronized automatically when connection is restored.
+The TeamTrainer App is built with **offline-first architecture**, allowing coaches and players to use the app even without internet connection. All data is synchronized automatically when connection is restored.
 
 ---
 

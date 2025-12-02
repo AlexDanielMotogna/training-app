@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Background Circle -->
+  <circle cx="100" cy="100" r="95" fill="#203731" stroke="#FFB612" stroke-width="3"/>
+
+  <!-- Trophy Icon -->
+  <g transform="translate(100, 80)">
+    <!-- Cup -->
+    <path d="M -30 -20 L -25 10 Q -25 15 -20 15 L 20 15 Q 25 15 25 10 L 30 -20 Z"
+          fill="#FFB612" stroke="#FFB612" stroke-width="2"/>
+
+    <!-- Handles -->
+    <path d="M -30 -15 Q -40 -15 -40 -5 Q -40 5 -30 5"
+          fill="none" stroke="#FFB612" stroke-width="3"/>
+    <path d="M 30 -15 Q 40 -15 40 -5 Q 40 5 30 5"
+          fill="none" stroke="#FFB612" stroke-width="3"/>
+
+    <!-- Base -->
+    <rect x="-15" y="15" width="30" height="8" fill="#FFB612"/>
+    <rect x="-20" y="23" width="40" height="5" fill="#FFB612"/>
+
+    <!-- Shine -->
+    <path d="M -15 -10 L -10 0 L -15 10" fill="#FFF" opacity="0.3"/>
+  </g>
+
+  <!-- Text -->
+  <text x="100" y="155" font-family="Arial, sans-serif" font-size="24" font-weight="bold"
+        text-anchor="middle" fill="#FFB612">TT</text>
+</svg>

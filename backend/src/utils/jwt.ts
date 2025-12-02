@@ -6,7 +6,14 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 export interface JWTPayload {
   userId: string;
   email: string;
-  role: string;
+  role: string; // Legacy: 'player' | 'coach'
+
+  // Multi-tenancy fields
+  organizationId?: string;
+  organizationRole?: string; // 'owner' | 'admin' | 'coach' | 'player'
+  teamIds?: string[]; // Teams the user belongs to
+  activeTeamId?: string; // Currently selected team
+  platformRole?: string; // 'user' | 'support' | 'admin' | 'super_admin'
 }
 
 export function generateToken(payload: JWTPayload): string {

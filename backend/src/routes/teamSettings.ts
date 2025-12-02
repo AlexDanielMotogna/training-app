@@ -29,7 +29,7 @@ router.get('/', authenticate, async (req, res) => {
       settings = await prisma.teamSettings.create({
         data: {
           teamName: 'Rhinos',
-          appName: 'Rhinos Training',
+          appName: 'TeamTrainer',
           primaryColor: '#1976d2',
           secondaryColor: '#dc004e',
           seasonPhase: 'off-season',

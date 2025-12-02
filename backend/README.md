@@ -1,6 +1,6 @@
-# Rhinos Training - Backend API
+# TeamTrainer - Backend API
 
-Backend API for Rhinos Training App built with Express.js, Prisma, and MongoDB.
+Backend API for TeamTrainer App built with Express.js, Prisma, and MongoDB.
 
 ## Tech Stack
 
@@ -42,7 +42,7 @@ JWT_EXPIRES_IN="7d"
 # Brevo API key (get from https://brevo.com)
 BREVO_API_KEY="your-brevo-api-key"
 BREVO_SENDER_EMAIL="noreply@yourteam.com"
-BREVO_SENDER_NAME="Rhinos Training"
+BREVO_SENDER_NAME="TeamTrainer"
 
 # Server config
 PORT=5000
@@ -332,4 +332,4 @@ See `../SECURITY.md` for detailed security guidelines.
 
 ## License
 
-Private - Rhinos Training Team
+Private - TeamTrainer Team

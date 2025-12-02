@@ -70,33 +70,30 @@ export async function createUserPlan(payload: UserPlanPayload): Promise<UserPlan
   allPlans.push(newPlan);
   localStorage.setItem(USER_PLANS_KEY, JSON.stringify(allPlans));
 
-  // Try to save to backend if online
-  
-  if (online) {
-    try {
-      console.log('[USER PLANS] Saving plan to backend:', newPlan.name);
-      const backendPlan = await userPlanService.create({
-        name: newPlan.name,
-        trainingType: 'custom', // Default training type
-        exercises: newPlan.exercises,
-        notes: '',
-        timesCompleted: newPlan.timesCompleted,
-        createdAt: newPlan.createdAt,
-        updatedAt: newPlan.updatedAt,
-      });
+  // Try to save to backend
+  try {
+    console.log('[USER PLANS] Saving plan to backend:', newPlan.name);
+    const backendPlan = await userPlanService.create({
+      name: newPlan.name,
+      trainingType: 'custom', // Default training type
+      exercises: newPlan.exercises,
+      notes: '',
+      timesCompleted: newPlan.timesCompleted,
+      createdAt: newPlan.createdAt,
+      updatedAt: newPlan.updatedAt,
+    });
 
-      // Update local plan with backend ID
-      newPlan.id = backendPlan.id;
-      const index = allPlans.findIndex(p => p.createdAt === newPlan.createdAt && p.name === newPlan.name);
-      if (index !== -1) {
-        allPlans[index] = newPlan;
-        localStorage.setItem(USER_PLANS_KEY, JSON.stringify(allPlans));
-      }
-
-      console.log('[USER PLANS] Plan saved to backend:', backendPlan.id);
-    } catch (error) {
-      console.warn('[USER PLANS] Failed to save plan to backend, will sync later:', error);
+    // Update local plan with backend ID
+    newPlan.id = backendPlan.id;
+    const index = allPlans.findIndex(p => p.createdAt === newPlan.createdAt && p.name === newPlan.name);
+    if (index !== -1) {
+      allPlans[index] = newPlan;
+      localStorage.setItem(USER_PLANS_KEY, JSON.stringify(allPlans));
     }
+
+    console.log('[USER PLANS] Plan saved to backend:', backendPlan.id);
+  } catch (error) {
+    console.warn('[USER PLANS] Failed to save plan to backend, will sync later:', error);
   }
 
   return newPlan;
@@ -125,32 +122,28 @@ export async function updateUserPlan(planId: string, updates: Partial<UserPlanPa
   localStorage.setItem(USER_PLANS_KEY, JSON.stringify(allPlans));
 
   // Try to update backend if online
-  
-  if (online) {
-    try {
-      console.log('[USER PLANS] Updating plan on backend:', planId);
-      console.log('[USER PLANS] Update payload:', {
-        name: updatedPlan.name,
-        exerciseCount: updatedPlan.exercises.length,
-        exercises: updatedPlan.exercises
-      });
-      await userPlanService.update(planId, {
-        name: updatedPlan.name,
-        trainingType: 'custom',
-        exercises: updatedPlan.exercises,
-        notes: '',
-        timesCompleted: updatedPlan.timesCompleted,
-        updatedAt: updatedPlan.updatedAt,
-      });
-      console.log('[USER PLANS] ✅ Plan updated successfully on backend');
-    } catch (error) {
-      console.error('[USER PLANS] ❌ FAILED to update plan on backend:', error);
-      console.error('[USER PLANS] ⚠️  WARNING: Changes are only saved locally. They will be lost if backend sync happens before reconnection.');
-      // TODO: Add to outbox for retry
-      throw error; // Re-throw to let caller know update failed
-    }
-  } else {
-    console.warn('[USER PLANS] Offline - changes saved locally only');
+
+  try {
+    console.log('[USER PLANS] Updating plan on backend:', planId);
+    console.log('[USER PLANS] Update payload:', {
+      name: updatedPlan.name,
+      exerciseCount: updatedPlan.exercises.length,
+      exercises: updatedPlan.exercises
+    });
+    await userPlanService.update(planId, {
+      name: updatedPlan.name,
+      trainingType: 'custom',
+      exercises: updatedPlan.exercises,
+      notes: '',
+      timesCompleted: updatedPlan.timesCompleted,
+      updatedAt: updatedPlan.updatedAt,
+    });
+    console.log('[USER PLANS] ✅ Plan updated successfully on backend');
+  } catch (error) {
+    console.error('[USER PLANS] ❌ FAILED to update plan on backend:', error);
+    console.error('[USER PLANS] ⚠️  WARNING: Changes are only saved locally. They will be lost if backend sync happens before reconnection.');
+    // TODO: Add to outbox for retry
+    throw error; // Re-throw to let caller know update failed
   }
 
   return updatedPlan;
@@ -227,13 +220,6 @@ export async function duplicateUserPlan(planId: string): Promise<UserPlanTemplat
  * Merges backend data with local cache
  */
 export async function syncUserPlansFromBackend(userId: string): Promise<void> {
-  
-
-  if (!online) {
-    console.log('[USER PLANS] Offline - skipping backend sync');
-    return;
-  }
-
   try {
     console.log('[USER PLANS] 📡 Starting sync from backend for user:', userId);
     const backendPlans = await userPlanService.getAll() as any[];

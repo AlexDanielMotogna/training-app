@@ -1,4 +1,4 @@
-# 🎯 PLAN DE INTEGRACIÓN BACKEND - RHINOS TRAINING APP
+# 🎯 PLAN DE INTEGRACIÓN BACKEND - TeamTrainer APP
 
 **Fecha de creación:** 2025-10-29
 **Última actualización:** 2025-10-30

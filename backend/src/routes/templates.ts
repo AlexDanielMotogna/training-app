@@ -2,8 +2,12 @@ import express from 'express';
 import { z } from 'zod';
 import prisma from '../utils/prisma.js';
 import { authenticate } from '../middleware/auth.js';
+import { optionalTenant, buildScopedFilter } from '../middleware/tenant.js';
 
 const router = express.Router();
+
+// Apply auth + optional tenant to all routes
+router.use(authenticate, optionalTenant);
 
 // Validation schemas
 const templateSchema = z.object({
@@ -20,11 +24,22 @@ const templateSchema = z.object({
 });
 
 // GET /api/templates - Get all templates
-router.get('/', authenticate, async (req, res) => {
+// Uses hybrid visibility: shared templates (teamId=null) + team-specific templates
+router.get('/', async (req, res) => {
   try {
     const { trainingType, position, season } = req.query;
 
-    const where: any = {};
+    // Build filter with tenant isolation + hybrid visibility
+    let where: any = {};
+
+    if (req.tenant?.organizationId) {
+      try {
+        where = buildScopedFilter(req); // Includes org filter + hybrid team visibility
+      } catch {
+        // No tenant context - show legacy templates only
+        where.organizationId = null;
+      }
+    }
 
     if (trainingType) {
       where.trainingType = trainingType;
@@ -81,7 +96,7 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // GET /api/templates/:id - Get single template
-router.get('/:id', authenticate, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -96,6 +111,11 @@ router.get('/:id', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Template not found' });
     }
 
+    // Check tenant isolation
+    if (template.organizationId && template.organizationId !== req.tenant?.organizationId) {
+      return res.status(403).json({ error: 'Access denied to this template' });
+    }
+
     res.json(template);
   } catch (error) {
     console.error('Get template error:', error);
@@ -104,10 +124,12 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // POST /api/templates - Create new template (Coach only)
-router.post('/', authenticate, async (req, res) => {
+// Templates can be shared (teamId=null) or team-specific
+router.post('/', async (req, res) => {
   try {
     // Check if user is coach
-    if (req.user.role !== 'coach') {
+    const isCoach = req.user.role === 'coach' || req.tenant?.permissions.isCoach;
+    if (!isCoach) {
       return res.status(403).json({ error: 'Only coaches can create templates' });
     }
 
@@ -117,6 +139,10 @@ router.post('/', authenticate, async (req, res) => {
       data: {
         ...data,
         createdBy: req.user.userId,
+        // Multi-tenancy: associate with organization
+        organizationId: req.tenant?.organizationId || null,
+        // Optional: associate with active team or leave null for org-wide sharing
+        teamId: req.tenant?.activeTeamId || null,
       },
     });
 
@@ -154,10 +180,11 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // PATCH /api/templates/:id - Update template (Coach only)
-router.patch('/:id', authenticate, async (req, res) => {
+router.patch('/:id', async (req, res) => {
   try {
     // Check if user is coach
-    if (req.user.role !== 'coach') {
+    const isCoach = req.user.role === 'coach' || req.tenant?.permissions.isCoach;
+    if (!isCoach) {
       return res.status(403).json({ error: 'Only coaches can update templates' });
     }
 
@@ -171,6 +198,11 @@ router.patch('/:id', authenticate, async (req, res) => {
 
     if (!existing) {
       return res.status(404).json({ error: 'Template not found' });
+    }
+
+    // Check tenant isolation
+    if (existing.organizationId && existing.organizationId !== req.tenant?.organizationId) {
+      return res.status(403).json({ error: 'Access denied to this template' });
     }
 
     const template = await prisma.trainingTemplate.update({
@@ -212,10 +244,11 @@ router.patch('/:id', authenticate, async (req, res) => {
 });
 
 // DELETE /api/templates/:id - Delete template (Coach only)
-router.delete('/:id', authenticate, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     // Check if user is coach
-    if (req.user.role !== 'coach') {
+    const isCoach = req.user.role === 'coach' || req.tenant?.permissions.isCoach;
+    if (!isCoach) {
       return res.status(403).json({ error: 'Only coaches can delete templates' });
     }
 
@@ -228,6 +261,11 @@ router.delete('/:id', authenticate, async (req, res) => {
 
     if (!existing) {
       return res.status(404).json({ error: 'Template not found' });
+    }
+
+    // Check tenant isolation
+    if (existing.organizationId && existing.organizationId !== req.tenant?.organizationId) {
+      return res.status(403).json({ error: 'Access denied to this template' });
     }
 
     // This will also delete all assignments (cascade)

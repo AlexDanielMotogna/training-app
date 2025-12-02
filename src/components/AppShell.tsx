@@ -33,6 +33,7 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import SettingsIcon from '@mui/icons-material/Settings';
 import SportsFootballIcon from '@mui/icons-material/SportsFootball';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import BusinessIcon from '@mui/icons-material/Business';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useI18n } from '../i18n/I18nProvider';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -43,10 +44,10 @@ import {
 } from '../services/mock';
 import { notificationService } from '../services/api';
 import type { Notification } from '../types/notification';
-import RhinosLogo from '../assets/imgs/USR_Allgemein_Quard_Transparent.png';
-import { getTeamBrandingAsync } from '../services/teamSettings';
-import type { TeamBranding } from '../types/teamSettings';
+import { useOrganization } from '../contexts/OrganizationContext';
 import { toastService } from '../services/toast';
+
+const DEFAULT_LOGO = '/teamtraining-logo.svg';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -59,17 +60,8 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
-  const [branding, setBranding] = useState<TeamBranding | null>(null);
+  const { organization } = useOrganization();
   const user = getUser();
-
-  // Load team branding from database
-  useEffect(() => {
-    const loadBranding = async () => {
-      const brandingData = await getTeamBrandingAsync();
-      setBranding(brandingData);
-    };
-    loadBranding();
-  }, []);
 
   useEffect(() => {
     // Load notifications from backend
@@ -122,7 +114,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
     { key: 'admin', label: t('nav.coachPanel'), icon: <SportsIcon />, path: '/admin', description: t('nav.coachPanelDesc') },
     { key: 'drillSessionsManage', label: t('nav.manageDrillSessions'), icon: <SportsFootballIcon />, path: '/drill-sessions-manage' },
     { key: 'reports', label: t('nav.reports'), icon: <DescriptionIcon />, path: '/reports' },
-    { key: 'configuration', label: t('nav.configuration'), icon: <SettingsIcon />, path: '/configuration' },
+    { key: 'orgSettings', label: t('nav.orgSettings'), icon: <BusinessIcon />, path: '/org-settings' },
   ];
 
   const handleNavigation = (path: string) => {
@@ -202,7 +194,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
               fontWeight: 600,
             }}
           >
-            {t('app.title')}
+            {organization?.name || t('app.title')}
           </Typography>
 
           <NotificationBell
@@ -247,15 +239,15 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
               <Box
                 component="img"
-                src={branding?.logoUrl || RhinosLogo}
-                alt={`${branding?.appName || 'App'} Logo`}
+                src={organization?.logoUrl || DEFAULT_LOGO}
+                alt={`${organization?.name || 'teamTraining'} Logo`}
                 sx={{
                   width: 40,
                   height: 40,
                   objectFit: 'contain',
                 }}
               />
-              <Typography variant="h6">{branding?.appName || t('app.title')}</Typography>
+              <Typography variant="h6">{organization?.name || t('app.title')}</Typography>
             </Box>
             {user && (
               <Box sx={{ pl: 0.5 }}>

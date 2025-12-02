@@ -71,8 +71,9 @@ import { SpielplanManager } from '../components/admin/SpielplanManager';
 import { getTeamSettings, updateTeamSettings, syncTeamSettingsFromBackend } from '../services/teamSettings';
 import type { SeasonPhase, TeamLevel } from '../types/teamSettings';
 import { validateAPIKey } from '../services/aiInsights';
-import RhinosLogo from '../assets/imgs/USR_Allgemein_Quard_Transparent.png';
 import { NotificationTemplates, getNotificationStatus, requestNotificationPermission } from '../services/notifications';
+
+const DEFAULT_LOGO = '/teamtraining-logo.svg';
 import { toastService } from '../services/toast';
 import { createSession, getTeamSessions, deleteSession } from '../services/trainingSessions';
 import NotificationsIcon from '@mui/icons-material/Notifications';
@@ -1109,8 +1110,8 @@ export const Admin: React.FC = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box
             component="img"
-            src={RhinosLogo}
-            alt="Rhinos Logo"
+            src={DEFAULT_LOGO}
+            alt="teamTraining Logo"
             sx={{
               width: 50,
               height: 50,

@@ -44,8 +44,9 @@ router.post('/signup', async (req, res) => {
   try {
     const data = signupSchema.parse(req.body);
 
-    // Validate coach code if signing up as coach
-    if (data.role === 'coach' && data.coachCode !== COACH_CODE) {
+    // Validate coach code ONLY if provided (legacy flow)
+    // In SaaS flow, coach code is not required as users become organization owners
+    if (data.coachCode && data.role === 'coach' && data.coachCode !== COACH_CODE) {
       return res.status(400).json({ error: 'Invalid coach code' });
     }
 
@@ -120,9 +121,32 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = loginSchema.parse(req.body);
 
-    // Find user
+    // Find user with organization membership
     const user = await prisma.user.findUnique({
       where: { email },
+      include: {
+        organizationMemberships: {
+          where: { organization: { subscriptionStatus: { not: 'canceled' } } },
+          include: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                sportId: true,
+                plan: true,
+                primaryColor: true,
+                secondaryColor: true,
+                logoUrl: true,
+              }
+            }
+          }
+        },
+        teamMemberships: {
+          where: { isActive: true },
+          select: { teamId: true, role: true }
+        }
+      }
     });
 
     if (!user) {
@@ -136,11 +160,30 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Generate JWT
+    // Update last login
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() }
+    });
+
+    // Get primary organization membership (first active one or from user.organizationId)
+    const primaryOrgMembership = user.organizationMemberships.find(
+      m => m.organizationId === user.organizationId
+    ) || user.organizationMemberships[0];
+
+    // Get team IDs for the user
+    const teamIds = user.teamMemberships.map(tm => tm.teamId);
+
+    // Generate JWT with organization context
     const token = generateToken({
       userId: user.id,
       email: user.email,
-      role: user.role,
+      role: user.role, // Legacy field
+      organizationId: primaryOrgMembership?.organizationId,
+      organizationRole: primaryOrgMembership?.role,
+      teamIds: teamIds,
+      activeTeamId: teamIds[0], // Default to first team
+      platformRole: user.platformRole,
     });
 
     res.json({
@@ -150,6 +193,7 @@ router.post('/login', async (req, res) => {
         email: user.email,
         name: user.name,
         role: user.role,
+        platformRole: user.platformRole,
         jerseyNumber: user.jerseyNumber,
         birthDate: user.birthDate,
         position: user.position,
@@ -164,7 +208,22 @@ router.post('/login', async (req, res) => {
         hudl: user.hudl,
         metricsPublic: user.metricsPublic,
         aiCoachEnabled: user.aiCoachEnabled,
+        preferredLanguage: user.preferredLanguage,
+        avatarUrl: user.avatarUrl,
       },
+      // Organization context (if member of one)
+      organization: primaryOrgMembership?.organization ? {
+        id: primaryOrgMembership.organization.id,
+        name: primaryOrgMembership.organization.name,
+        slug: primaryOrgMembership.organization.slug,
+        sportId: primaryOrgMembership.organization.sportId,
+        plan: primaryOrgMembership.organization.plan,
+        primaryColor: primaryOrgMembership.organization.primaryColor,
+        secondaryColor: primaryOrgMembership.organization.secondaryColor,
+        logoUrl: primaryOrgMembership.organization.logoUrl,
+        role: primaryOrgMembership.role,
+      } : null,
+      teamIds,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

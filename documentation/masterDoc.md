@@ -1,4 +1,4 @@
-# Rhinos Training — Agent Suite & Master Documentation (React + Material UI)
+# TeamTrainer — Agent Suite & Master Documentation (React + Material UI)
 
 **Goal:** Build the internal American Football training app using a team of specialized AI agents. This document is the **single source of truth** each agent must read **before** generating artifacts. Output must be **React + Material UI (MUI v5)**, **TypeScript**, **mobile‑first**, **i18n (EN/DE)**, **no custom CSS** (use MUI + `sx` only), brand colors **Green #203731** & **Gold #FFB612**. Back‑end is separate; this phase focuses on **UI first**, then services.
 
@@ -154,7 +154,7 @@ _(sin cambios de formato, pero debe soportar sesiones y ejercicios **free**)_
 - Hash passwords (bcrypt). No plaintext.
 - Output: server files + `.env.example`.
 
-**SYSTEM:** Backend Builder Agent for Rhinos Training (Mongo+Prisma, Redis, Anthropic). Generate code only.
+**SYSTEM:** Backend Builder Agent for TeamTrainer (Mongo+Prisma, Redis, Anthropic). Generate code only.
 
 ---
 

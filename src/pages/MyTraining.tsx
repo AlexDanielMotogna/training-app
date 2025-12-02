@@ -470,26 +470,21 @@ export const MyTraining: React.FC = () => {
 
       // Save to IndexedDB for offline persistence
 
-      // Try to save to backend (will work if online)
-      if (online) {
-        try {
-          await workoutService.create({
-            date: today,
-            entries: workoutLog.entries,
-            notes: workoutLog.notes,
-            source: 'player',
-            planTemplateId: workoutLog.planTemplateId,
-            planName: workoutLog.planName,
-            duration: workoutLog.duration,
-            planMetadata: workoutLog.planMetadata,
-            completionPercentage: workoutLog.completionPercentage,
-          });
-          console.log('✅ Player workout saved to backend');
-        } catch (error) {
-          console.warn('⚠️ Failed to save player workout to backend, will sync later:', error);
-        }
-      } else {
-        console.log('📦 Player workout queued for sync when online');
+      try {
+        await workoutService.create({
+          date: today,
+          entries: workoutLog.entries,
+          notes: workoutLog.notes,
+          source: 'player',
+          planTemplateId: workoutLog.planTemplateId,
+          planName: workoutLog.planName,
+          duration: workoutLog.duration,
+          planMetadata: workoutLog.planMetadata,
+          completionPercentage: workoutLog.completionPercentage,
+        });
+        console.log('✅ Player workout saved to backend');
+      } catch (error) {
+        console.warn('⚠️ Failed to save player workout to backend, will sync later:', error);
       }
 
       markPlanAsUsed(startingPlan.id);
@@ -606,27 +601,21 @@ export const MyTraining: React.FC = () => {
 
       // Save to IndexedDB for offline persistence
 
-      // Try to save to backend (will work if online)
-      if (online) {
-        try {
-          await workoutService.create({
-            date: today,
-            entries: workoutLog.entries,
-            notes: workoutLog.notes,
-            source: 'coach',
-            planName: workoutLog.planName,
-            duration: workoutLog.duration,
-            planMetadata: workoutLog.planMetadata,
-            completionPercentage: workoutLog.completionPercentage,
-          });
-          console.log('✅ Workout saved to backend');
-        } catch (error) {
-          console.warn('⚠️ Failed to save workout to backend, will sync later:', error);
-          // Add to outbox for later sync
-        }
-      } else {
-        // Offline: add to outbox for later sync
-        console.log('📦 Workout queued for sync when online');
+      try {
+        await workoutService.create({
+          date: today,
+          entries: workoutLog.entries,
+          notes: workoutLog.notes,
+          source: 'coach',
+          planName: workoutLog.planName,
+          duration: workoutLog.duration,
+          planMetadata: workoutLog.planMetadata,
+          completionPercentage: workoutLog.completionPercentage,
+        });
+        console.log('✅ Workout saved to backend');
+      } catch (error) {
+        console.warn('⚠️ Failed to save workout to backend, will sync later:', error);
+        // Add to outbox for later sync
       }
 
       refreshWorkoutHistory();
@@ -720,25 +709,20 @@ export const MyTraining: React.FC = () => {
 
       // Save to IndexedDB for offline persistence
 
-      // Try to save to backend (will work if online)
-      if (online) {
-        try {
-          await workoutService.create({
-            date: today,
-            entries: workoutLog.entries,
-            notes: workoutLog.notes,
-            source: 'coach',
-            planName: workoutLog.planName,
-            duration: workoutLog.duration,
-            planMetadata: workoutLog.planMetadata,
-            completionPercentage: workoutLog.completionPercentage,
-          });
-          console.log('✅ Workout saved to backend');
-        } catch (error) {
-          console.warn('⚠️ Failed to save workout to backend, will sync later:', error);
-        }
-      } else {
-        console.log('📦 Workout queued for sync when online');
+      try {
+        await workoutService.create({
+          date: today,
+          entries: workoutLog.entries,
+          notes: workoutLog.notes,
+          source: 'coach',
+          planName: workoutLog.planName,
+          duration: workoutLog.duration,
+          planMetadata: workoutLog.planMetadata,
+          completionPercentage: workoutLog.completionPercentage,
+        });
+        console.log('✅ Workout saved to backend');
+      } catch (error) {
+        console.warn('⚠️ Failed to save workout to backend, will sync later:', error);
       }
 
       refreshWorkoutHistory();

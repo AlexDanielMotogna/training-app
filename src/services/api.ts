@@ -21,6 +21,18 @@ export interface LoginData {
   password: string;
 }
 
+export interface AuthOrganization {
+  id: string;
+  name: string;
+  slug: string;
+  sportId: string;
+  plan: 'free' | 'starter' | 'pro' | 'enterprise';
+  primaryColor: string;
+  secondaryColor: string;
+  logoUrl?: string;
+  role: 'owner' | 'admin' | 'coach' | 'player';
+}
+
 export interface AuthResponse {
   token: string;
   user: {
@@ -43,6 +55,8 @@ export interface AuthResponse {
     metricsPublic?: boolean;
     aiCoachEnabled?: boolean;
   };
+  organization?: AuthOrganization | null;
+  teamIds?: string[];
 }
 
 // Helper to get auth token from localStorage
@@ -132,6 +146,19 @@ export const authService = {
     // Store token and user
     setAuthToken(response.token);
     localStorage.setItem('currentUser', JSON.stringify(response.user));
+
+    // Store organization context if present
+    if (response.organization) {
+      localStorage.setItem('teamtrainer_organization', JSON.stringify(response.organization));
+    }
+
+    // Store team IDs if present
+    if (response.teamIds?.length) {
+      localStorage.setItem('teamtrainer_teams', JSON.stringify(response.teamIds.map(id => ({ id }))));
+      if (!localStorage.getItem('teamtrainer_active_team')) {
+        localStorage.setItem('teamtrainer_active_team', response.teamIds[0]);
+      }
+    }
 
     return response;
   },
@@ -1104,17 +1131,24 @@ export const notificationService = {
  */
 export const leaderboardService = {
   /**
-   * Get current week leaderboard
+   * Get current month leaderboard (with optional category filter)
    */
-  async getCurrentWeek() {
-    return apiCall('/leaderboard');
+  async getCurrentWeek(category?: string) {
+    return apiCall(`/leaderboard${category ? `?category=${category}` : ''}`);
   },
 
   /**
-   * Get leaderboard for a specific week
+   * Get leaderboard for a specific month (YYYY-MM format)
+   */
+  async getMonth(month: string, category?: string) {
+    return apiCall(`/leaderboard/month/${month}${category ? `?category=${category}` : ''}`);
+  },
+
+  /**
+   * Get leaderboard for a specific week (legacy)
    */
   async getWeek(week: string) {
-    return apiCall(`/leaderboard/${week}`);
+    return apiCall(`/leaderboard/week/${week}`);
   },
 
   /**
@@ -1255,6 +1289,15 @@ export const reportsService = {
    */
   async getMonthlyReport(month?: string) {
     const endpoint = month ? `/reports/monthly/${month}` : '/reports/monthly';
+    return apiCall(endpoint);
+  },
+
+  /**
+   * Get simplified weekly training overview
+   * @param startDate - Start date in YYYY-MM-DD format (optional, defaults to current week Monday)
+   */
+  async getWeeklyOverview(startDate?: string) {
+    const endpoint = startDate ? `/reports/weekly-overview/${startDate}` : '/reports/weekly-overview';
     return apiCall(endpoint);
   },
 };

@@ -117,30 +117,24 @@ export async function updateUserProfile(updates: Partial<MockUser>): Promise<Moc
   saveUserLocal(updatedUser);
   console.log('[USER PROFILE] User profile updated locally');
 
-  // Try to sync with backend if online
   const online = isOnline();
-  if (online) {
-    try {
-      console.log('[USER PROFILE] Syncing user profile to backend...');
-      const backendUser = await userService.updateProfile(updates);
+  try {
+    console.log('[USER PROFILE] Syncing user profile to backend...');
+    const backendUser = await userService.updateProfile(updates);
 
-      // Merge backend response with local data
-      const mergedUser: MockUser = {
-        ...updatedUser,
-        ...backendUser,
-      };
+    // Merge backend response with local data
+    const mergedUser: MockUser = {
+      ...updatedUser,
+      ...backendUser,
+    };
 
-      // Update local storage with backend data
-      saveUserLocal(mergedUser);
-      console.log('[USER PROFILE] User profile synced to backend successfully');
-      return mergedUser;
-    } catch (error) {
-      console.warn('[USER PROFILE] Failed to sync to backend, keeping local changes:', error);
-      // Keep local changes even if backend sync fails
-      return updatedUser;
-    }
-  } else {
-    console.log('[USER PROFILE] Offline - profile saved locally only');
+    // Update local storage with backend data
+    saveUserLocal(mergedUser);
+    console.log('[USER PROFILE] User profile synced to backend successfully');
+    return mergedUser;
+  } catch (error) {
+    console.warn('[USER PROFILE] Failed to sync to backend, keeping local changes:', error);
+    // Keep local changes even if backend sync fails
     return updatedUser;
   }
 }

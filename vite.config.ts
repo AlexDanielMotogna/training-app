@@ -8,24 +8,24 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt', 'USR_Allgemein_Quard_Transparent.png'],
+      includeAssets: ['favicon.ico', 'robots.txt', 'teamtraining-logo.svg'],
       manifest: {
-        name: 'Rhinos Training',
-        short_name: 'Rhinos',
-        description: 'American Football Training App - Works Offline',
+        name: 'teamTraining',
+        short_name: 'teamTraining',
+        description: 'Multi-sport Training Management Platform - Works Offline',
         theme_color: '#203731',
         background_color: '#203731',
         display: 'standalone',
         icons: [
           {
-            src: '/USR_Allgemein_Quard_Transparent.png',
+            src: '/teamtraining-logo.svg',
             sizes: '192x192',
-            type: 'image/png',
+            type: 'image/svg+xml',
           },
           {
-            src: '/USR_Allgemein_Quard_Transparent.png',
+            src: '/teamtraining-logo.svg',
             sizes: '512x512',
-            type: 'image/png',
+            type: 'image/svg+xml',
           },
         ],
       },
@@ -86,5 +86,12 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
 });

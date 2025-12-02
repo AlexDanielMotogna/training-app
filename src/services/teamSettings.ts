@@ -27,7 +27,7 @@ export async function syncTeamSettingsFromBackend(): Promise<void> {
         : [],
       branding: {
         teamName: backendSettings.teamName,
-        appName: backendSettings.appName || 'Rhinos Training',
+        appName: backendSettings.appName || 'TeamTrainer',
         logoUrl: backendSettings.logoUrl,
         faviconUrl: backendSettings.faviconUrl,
         primaryColor: backendSettings.primaryColor,
@@ -46,9 +46,8 @@ export async function syncTeamSettingsFromBackend(): Promise<void> {
       if (settings.branding.faviconUrl) {
         updateFavicon(settings.branding.faviconUrl);
       }
-      if (settings.branding.appName) {
-        document.title = settings.branding.appName;
-      }
+      // NOTE: Document title is now static ("teamTraining" from index.html)
+      // Organization name is displayed in AppShell header instead
     }
   } catch (error) {
     console.warn('⚠️ Failed to sync team settings:', error);
@@ -113,7 +112,7 @@ export async function getTeamBrandingAsync(): Promise<TeamBranding> {
     const backendSettings = await teamSettingsApi.get();
     return {
       teamName: backendSettings.teamName,
-      appName: backendSettings.appName || 'Rhinos Training',
+      appName: backendSettings.appName || 'TeamTrainer',
       logoUrl: backendSettings.logoUrl,
       faviconUrl: backendSettings.faviconUrl,
       primaryColor: backendSettings.primaryColor,

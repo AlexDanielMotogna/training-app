@@ -13,12 +13,12 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { getUser } from './services/userProfile';
 import type { HardNotification as HardNotificationType } from './types/notification';
 import type { AttendancePoll } from './types/attendancePoll';
-import { getTeamBrandingAsync } from './services/teamSettings';
-import type { TeamBranding } from './types/teamSettings';
 import { DEFAULT_TEAM_BRANDING } from './types/teamSettings';
 import { initializeDrillData } from './services/drillDataInit';
 import { getActivePoll, hasUserVoted } from './services/attendancePollService';
 import { cleanupMockNotifications } from './services/mock';
+import { OrganizationProvider, TeamProvider, useOrganization } from './contexts';
+import { OnboardingTour } from './components/OnboardingTour';
 
 /**
  * Helper to create lazy-loaded components with error handling
@@ -63,8 +63,16 @@ const createLazyComponent = (
 };
 
 // Lazy load all page components with error handling
+// Public pages
+const Landing = createLazyComponent(() => import('./pages/public').then(m => ({ default: m.Landing })), 'Landing');
+const Pricing = createLazyComponent(() => import('./pages/public').then(m => ({ default: m.Pricing })), 'Pricing');
+const Signup = createLazyComponent(() => import('./pages/public').then(m => ({ default: m.Signup })), 'Signup');
+
+// Auth pages
 const Auth = createLazyComponent(() => import('./pages/Auth').then(m => ({ default: m.Auth })), 'Auth');
 const ResetPassword = createLazyComponent(() => import('./pages/ResetPassword'), 'ResetPassword');
+
+// Protected pages
 const MyTraining = createLazyComponent(() => import('./pages/MyTraining').then(m => ({ default: m.MyTraining })), 'MyTraining');
 const MyStats = createLazyComponent(() => import('./pages/MyStats').then(m => ({ default: m.MyStats })), 'MyStats');
 const Profile = createLazyComponent(() => import('./pages/Profile').then(m => ({ default: m.Profile })), 'Profile');
@@ -81,10 +89,37 @@ const Videos = createLazyComponent(() => import('./pages/Videos').then(m => ({ d
 const VideosAdmin = createLazyComponent(() => import('./pages/VideosAdmin').then(m => ({ default: m.VideosAdmin })), 'VideosAdmin');
 const Team = createLazyComponent(() => import('./pages/Team').then(m => ({ default: m.Team })), 'Team');
 const TrainingSessions = createLazyComponent(() => import('./pages/TrainingSessions').then(m => ({ default: m.TrainingSessions })), 'TrainingSessions');
-const Configuration = createLazyComponent(() => import('./pages/Configuration').then(m => ({ default: m.Configuration })), 'Configuration');
 const DrillSessionsManage = createLazyComponent(() => import('./components/DrillTrainingPlan').then(m => ({ default: m.DrillTrainingPlan })), 'DrillSessionsManage');
 const DrillbookView = createLazyComponent(() => import('./pages/DrillbookView').then(m => ({ default: m.DrillbookView })), 'DrillbookView');
 const Spielplan = createLazyComponent(() => import('./pages/Spielplan').then(m => ({ default: m.Spielplan })), 'Spielplan');
+const OrganizationSettings = createLazyComponent(() => import('./pages/OrganizationSettings').then(m => ({ default: m.OrganizationSettings })), 'OrganizationSettings');
+
+/**
+ * ThemedApp - Inner component that has access to OrganizationContext
+ * Creates dynamic theme based on organization colors
+ */
+function ThemedApp({ children }: { children: React.ReactNode }) {
+  const { organization } = useOrganization();
+
+  // Create dynamic theme based on organization colors
+  const theme = useMemo(() => {
+    const branding = organization ? {
+      appName: organization.name,
+      primaryColor: organization.primaryColor,
+      secondaryColor: organization.secondaryColor,
+      logoUrl: organization.logoUrl,
+    } : DEFAULT_TEAM_BRANDING;
+
+    return createDynamicTheme(branding);
+  }, [organization?.primaryColor, organization?.secondaryColor]); // Re-create theme when colors change
+
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      {children}
+    </ThemeProvider>
+  );
+}
 
 function App() {
   // Initialize drill data on app startup
@@ -94,38 +129,13 @@ function App() {
   //   initializeDrillData();
   // }, []);
 
-  // State for branding loaded from database
-  const [branding, setBranding] = useState<TeamBranding>(DEFAULT_TEAM_BRANDING);
+  // User state - must be declared before useEffect that uses it
+  const [currentUser, setCurrentUser] = useState(() => getUser());
 
   // Clean up old mock data on app startup
   useEffect(() => {
     cleanupMockNotifications();
   }, []);
-
-  // Initialize branding from database on app startup
-  useEffect(() => {
-    const loadBranding = async () => {
-      const brandingData = await getTeamBrandingAsync();
-      setBranding(brandingData);
-
-      // Update document title
-      if (brandingData.appName) {
-        document.title = brandingData.appName;
-      }
-
-      // Update favicon
-      if (brandingData.faviconUrl) {
-        const link: HTMLLinkElement = document.querySelector("link[rel*='icon']") || document.createElement('link');
-        link.type = 'image/x-icon';
-        link.rel = 'shortcut icon';
-        link.href = brandingData.faviconUrl;
-        document.getElementsByTagName('head')[0].appendChild(link);
-      }
-    };
-    loadBranding();
-  }, []);
-
-  const [currentUser, setCurrentUser] = useState(() => getUser());
   const [hardNotification, setHardNotification] = useState<HardNotificationType | null>(null);
   const [activePoll, setActivePoll] = useState<AttendancePoll | null>(null);
   const [showPollModal, setShowPollModal] = useState(false);
@@ -180,20 +190,20 @@ function App() {
     setHardNotification(null);
   };
 
-  // Check for active attendance poll - only once on mount
+  // Check for active attendance poll - only when user is authenticated
   useEffect(() => {
+    if (!currentUser) return;
+
     const checkActivePoll = async () => {
-      if (currentUser) {
-        const poll = await getActivePoll();
-        if (poll && !(await hasUserVoted(poll.id, currentUser.id))) {
-          setActivePoll(poll);
-          setShowPollModal(true);
-        }
+      const poll = await getActivePoll();
+      if (poll && !(await hasUserVoted(poll.id, currentUser.id))) {
+        setActivePoll(poll);
+        setShowPollModal(true);
       }
     };
     checkActivePoll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount, not on currentUser changes
+  }, [currentUser]); // Run when currentUser changes
 
   // Check periodically for new polls (every 30 seconds)
   useEffect(() => {
@@ -215,7 +225,7 @@ function App() {
 
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showPollModal]); // Only depend on showPollModal, not currentUser
+  }, [currentUser, showPollModal]); // Depend on both currentUser and showPollModal
 
   const handleClosePollModal = async () => {
     // Only allow closing if user has voted
@@ -228,14 +238,8 @@ function App() {
     }
   };
 
-  // Create dynamic theme based on branding from database
-  const theme = useMemo(() => {
-    return createDynamicTheme(branding);
-  }, [branding]); // Re-create theme when branding changes
-
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <>
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -249,20 +253,40 @@ function App() {
         theme="colored"
       />
       <I18nProvider defaultLocale="en">
-        <BrowserRouter>
-          <Routes>
+        <OrganizationProvider>
+          <ThemedApp>
+            <TeamProvider>
+            <BrowserRouter>
+              <Routes>
+            {/* Public routes - accessible without authentication */}
             <Route
               path="/"
+              element={
+                currentUser ? <Navigate to="/training" replace /> : <ErrorBoundary><Suspense fallback={<LoadingSpinner />}><Landing /></Suspense></ErrorBoundary>
+              }
+            />
+            <Route
+              path="/pricing"
+              element={<ErrorBoundary><Suspense fallback={<LoadingSpinner />}><Pricing /></Suspense></ErrorBoundary>}
+            />
+            <Route
+              path="/signup"
+              element={
+                currentUser ? <Navigate to="/training" replace /> : <ErrorBoundary><Suspense fallback={<LoadingSpinner />}><Signup /></Suspense></ErrorBoundary>
+              }
+            />
+            <Route
+              path="/login"
               element={
                 currentUser ? <Navigate to="/training" replace /> : <ErrorBoundary><Suspense fallback={<LoadingSpinner />}><Auth /></Suspense></ErrorBoundary>
               }
             />
-
             <Route
               path="/reset-password"
               element={<ErrorBoundary><Suspense fallback={<LoadingSpinner />}><ResetPassword /></Suspense></ErrorBoundary>}
             />
 
+            {/* Protected routes - require authentication */}
             {currentUser ? (
               <Route element={<AppShell><ErrorBoundary><Suspense fallback={<LoadingSpinner />}><Outlet /></Suspense></ErrorBoundary></AppShell>}>
                 <Route path="/training" element={<MyTraining />} />
@@ -306,18 +330,18 @@ function App() {
                   }
                 />
                 <Route
-                  path="/configuration"
-                  element={
-                    currentUser.role === 'coach'
-                      ? <Configuration />
-                      : <Navigate to="/training" replace />
-                  }
-                />
-                <Route
                   path="/drill-sessions-manage"
                   element={
                     currentUser.role === 'coach'
                       ? <DrillSessionsManage />
+                      : <Navigate to="/training" replace />
+                  }
+                />
+                <Route
+                  path="/org-settings"
+                  element={
+                    currentUser.role === 'coach'
+                      ? <OrganizationSettings />
                       : <Navigate to="/training" replace />
                   }
                 />
@@ -326,24 +350,30 @@ function App() {
             ) : (
               <Route path="*" element={<Navigate to="/" replace />} />
             )}
-          </Routes>
+              </Routes>
 
-          <HardNotification
-            notification={hardNotification}
-            onAcknowledge={handleAcknowledgeNotification}
-          />
+              <HardNotification
+                notification={hardNotification}
+                onAcknowledge={handleAcknowledgeNotification}
+              />
 
-          {/* Attendance Poll Modal - Mandatory until voted */}
-          {showPollModal && activePoll && (
-            <AttendancePollModal
-              poll={activePoll}
-              onClose={handleClosePollModal}
-              canDismiss={false}
-            />
-          )}
-        </BrowserRouter>
+              {/* Attendance Poll Modal - Mandatory until voted */}
+              {showPollModal && activePoll && (
+                <AttendancePollModal
+                  poll={activePoll}
+                  onClose={handleClosePollModal}
+                  canDismiss={false}
+                />
+              )}
+
+              {/* Onboarding Tour for new users */}
+              {currentUser && <OnboardingTour />}
+            </BrowserRouter>
+          </TeamProvider>
+          </ThemedApp>
+        </OrganizationProvider>
       </I18nProvider>
-    </ThemeProvider>
+    </>
   );
 }
 

@@ -28,6 +28,8 @@ import exerciseCategoryRoutes from './routes/exerciseCategories.js';
 import reportsRoutes from './routes/reports.js';
 import matchRoutes from './routes/matches.js';
 import sseRoutes from './routes/sse.js';
+import organizationRoutes from './routes/organizations.js';
+import teamRoutes from './routes/teams.js';
 import { startCronJobs } from './utils/cronJobs.js';
 
 // Load environment variables
@@ -103,6 +105,10 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/sse', sseRoutes);
 
+// Multi-tenant routes
+app.use('/api/organizations', organizationRoutes);
+app.use('/api/organizations/:orgId/teams', teamRoutes);
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
@@ -118,7 +124,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`[SERVER] Rhinos Training API running on http://localhost:${PORT}`);
+  console.log(`[SERVER] teamTraining API running on http://localhost:${PORT}`);
   console.log(`[ENV] Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`[CONFIG] Frontend URL: ${process.env.FRONTEND_URL}`);
 

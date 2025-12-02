@@ -21,9 +21,9 @@ import { ForgotPasswordDialog } from '../components/ForgotPasswordDialog';
 import { calculateAge } from '../services/userProfile';
 import { authService } from '../services/api';
 import type { Position } from '../types/exercise';
-import RhinosLogo from '../assets/imgs/USR_Allgemein_Quard_Transparent.png';
 import { toastService } from '../services/toast';
 
+const DEFAULT_LOGO = '/teamtraining-logo.svg';
 const positions: Position[] = ['RB', 'WR', 'LB', 'OL', 'DB', 'QB', 'DL', 'TE', 'K/P'];
 
 export const Auth: React.FC = () => {
@@ -129,8 +129,8 @@ export const Auth: React.FC = () => {
           <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
             <Box
               component="img"
-              src={RhinosLogo}
-              alt="Rhinos Logo"
+              src={DEFAULT_LOGO}
+              alt="teamTraining Logo"
               sx={{
                 width: 120,
                 height: 120,

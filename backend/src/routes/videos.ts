@@ -2,8 +2,12 @@ import express from 'express';
 import { z } from 'zod';
 import prisma from '../utils/prisma.js';
 import { authenticate } from '../middleware/auth.js';
+import { optionalTenant } from '../middleware/tenant.js';
 
 const router = express.Router();
+
+// Apply auth + optional tenant to all routes
+router.use(authenticate, optionalTenant);
 
 // Validation schemas
 const createVideoSchema = z.object({
@@ -40,15 +44,25 @@ const updateVideoSchema = z.object({
 });
 
 // GET /api/videos - Get all videos
-router.get('/', authenticate, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { type } = req.query;
 
-    const where: any = {};
+    // Build filter with tenant isolation
+    const where: any = {
+      OR: [
+        { organizationId: null }, // Global videos
+      ],
+    };
 
-    // If player, only show published videos
-    const user = (req as any).user;
-    if (user.role === 'player') {
+    // Add org-specific videos if user has an organization
+    if (req.tenant?.organizationId) {
+      where.OR.push({ organizationId: req.tenant.organizationId });
+    }
+
+    // If not coach, only show published videos
+    const isCoach = req.user.role === 'coach' || req.tenant?.permissions.isCoach;
+    if (!isCoach) {
       where.status = 'published';
     }
 
@@ -74,7 +88,7 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // GET /api/videos/:id - Get single video
-router.get('/:id', authenticate, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -86,9 +100,14 @@ router.get('/:id', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Video not found' });
     }
 
-    // Check if player can access this video
-    const user = (req as any).user;
-    if (user.role === 'player' && video.status !== 'published') {
+    // Check tenant isolation
+    if (video.organizationId && video.organizationId !== req.tenant?.organizationId) {
+      return res.status(403).json({ error: 'Access denied to this video' });
+    }
+
+    // Check if player can access draft videos
+    const isCoach = req.user.role === 'coach' || req.tenant?.permissions.isCoach;
+    if (!isCoach && video.status !== 'published') {
       return res.status(403).json({ error: 'Access denied to draft video' });
     }
 
@@ -100,12 +119,11 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // POST /api/videos - Create video (coach only)
-router.post('/', authenticate, async (req, res) => {
+router.post('/', async (req, res) => {
   try {
-    const user = (req as any).user;
-
     // Only coaches can create videos
-    if (user.role !== 'coach') {
+    const isCoach = req.user.role === 'coach' || req.tenant?.permissions.isCoach;
+    if (!isCoach) {
       return res.status(403).json({ error: 'Only coaches can create videos' });
     }
 
@@ -127,10 +145,12 @@ router.post('/', authenticate, async (req, res) => {
         createdBy: data.createdBy,
         order: data.order,
         isPinned: data.isPinned,
+        // Multi-tenancy: associate with organization
+        organizationId: req.tenant?.organizationId || null,
       },
     });
 
-    console.log(`[VIDEOS] Video created: ${video.title} by ${user.email}`);
+    console.log(`[VIDEOS] Video created: ${video.title} by ${req.user.email}`);
     res.status(201).json(video);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -142,13 +162,13 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // PUT /api/videos/:id - Update video (coach only)
-router.put('/:id', authenticate, async (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
-    const user = (req as any).user;
     const { id } = req.params;
 
     // Only coaches can update videos
-    if (user.role !== 'coach') {
+    const isCoach = req.user.role === 'coach' || req.tenant?.permissions.isCoach;
+    if (!isCoach) {
       return res.status(403).json({ error: 'Only coaches can update videos' });
     }
 
@@ -159,6 +179,11 @@ router.put('/:id', authenticate, async (req, res) => {
 
     if (!existingVideo) {
       return res.status(404).json({ error: 'Video not found' });
+    }
+
+    // Check tenant isolation
+    if (existingVideo.organizationId && existingVideo.organizationId !== req.tenant?.organizationId) {
+      return res.status(403).json({ error: 'Access denied to this video' });
     }
 
     const data = updateVideoSchema.parse(req.body);
@@ -183,7 +208,7 @@ router.put('/:id', authenticate, async (req, res) => {
       data: updateData,
     });
 
-    console.log(`[VIDEOS] Video updated: ${video.title} by ${user.email}`);
+    console.log(`[VIDEOS] Video updated: ${video.title} by ${req.user.email}`);
     res.json(video);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -195,13 +220,13 @@ router.put('/:id', authenticate, async (req, res) => {
 });
 
 // DELETE /api/videos/:id - Delete video (coach only)
-router.delete('/:id', authenticate, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const user = (req as any).user;
     const { id } = req.params;
 
     // Only coaches can delete videos
-    if (user.role !== 'coach') {
+    const isCoach = req.user.role === 'coach' || req.tenant?.permissions.isCoach;
+    if (!isCoach) {
       return res.status(403).json({ error: 'Only coaches can delete videos' });
     }
 
@@ -214,6 +239,11 @@ router.delete('/:id', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Video not found' });
     }
 
+    // Check tenant isolation
+    if (existingVideo.organizationId && existingVideo.organizationId !== req.tenant?.organizationId) {
+      return res.status(403).json({ error: 'Access denied to this video' });
+    }
+
     // Delete all progress for this video first
     await prisma.videoProgress.deleteMany({
       where: { videoId: id },
@@ -223,7 +253,7 @@ router.delete('/:id', authenticate, async (req, res) => {
       where: { id },
     });
 
-    console.log(`[VIDEOS] Video deleted: ${existingVideo.title} by ${user.email}`);
+    console.log(`[VIDEOS] Video deleted: ${existingVideo.title} by ${req.user.email}`);
     res.json({ message: 'Video deleted successfully' });
   } catch (error) {
     console.error('[VIDEOS] Delete video error:', error);
@@ -243,9 +273,8 @@ const progressSchema = z.object({
 });
 
 // POST /api/videos/:id/progress - Save/update video progress
-router.post('/:id/progress', authenticate, async (req, res) => {
+router.post('/:id/progress', async (req, res) => {
   try {
-    const user = (req as any).user;
     const { id: videoId } = req.params;
 
     // Verify video exists
@@ -263,12 +292,12 @@ router.post('/:id/progress', authenticate, async (req, res) => {
     const progress = await prisma.videoProgress.upsert({
       where: {
         userId_videoId: {
-          userId: user.userId,
+          userId: req.user.userId,
           videoId: videoId,
         },
       },
       create: {
-        userId: user.userId,
+        userId: req.user.userId,
         videoId: videoId,
         lastTimestamp: data.lastTimestamp,
         totalDuration: data.totalDuration,
@@ -294,15 +323,14 @@ router.post('/:id/progress', authenticate, async (req, res) => {
 });
 
 // GET /api/videos/:id/progress - Get current user's progress for a video
-router.get('/:id/progress', authenticate, async (req, res) => {
+router.get('/:id/progress', async (req, res) => {
   try {
-    const user = (req as any).user;
     const { id: videoId } = req.params;
 
     const progress = await prisma.videoProgress.findUnique({
       where: {
         userId_videoId: {
-          userId: user.userId,
+          userId: req.user.userId,
           videoId: videoId,
         },
       },
@@ -320,13 +348,13 @@ router.get('/:id/progress', authenticate, async (req, res) => {
 });
 
 // GET /api/videos/progress/user/:userId - Get all progress for a user (coach only)
-router.get('/progress/user/:userId', authenticate, async (req, res) => {
+router.get('/progress/user/:userId', async (req, res) => {
   try {
-    const user = (req as any).user;
     const { userId } = req.params;
 
     // Only coaches can view other users' progress
-    if (user.role !== 'coach' && user.userId !== userId) {
+    const isCoach = req.user.role === 'coach' || req.tenant?.permissions.isCoach;
+    if (!isCoach && req.user.userId !== userId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 

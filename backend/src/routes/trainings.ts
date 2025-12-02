@@ -2,14 +2,15 @@ import express from 'express';
 import { z } from 'zod';
 import prisma from '../utils/prisma.js';
 import { authenticate } from '../middleware/auth.js';
+import { optionalTenant, buildScopedFilter } from '../middleware/tenant.js';
 import { createNotificationsForUsers } from './notifications.js';
 import { t, formatSessionMessage, formatPrivateSessionTitle } from '../utils/i18n.js';
 import { sseManager } from '../utils/sseManager.js';
 
 const router = express.Router();
 
-// All routes require authentication
-router.use(authenticate);
+// All routes require authentication + optional tenant context
+router.use(authenticate, optionalTenant);
 
 // Validation schemas
 const createTrainingSchema = z.object({
@@ -35,15 +36,29 @@ const updateTrainingSchema = createTrainingSchema.partial();
 router.get('/', async (req, res) => {
   try {
     const { from, days } = req.query;
-    const userId = (req as any).user.userId;
+    const userId = req.user.userId;
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Build base filter with tenant isolation
     let filter: any = {};
 
+    // Apply organization filter if user has an org
+    if (req.tenant?.organizationId) {
+      // Use hybrid visibility: shared sessions (teamId=null) + user's team sessions
+      try {
+        const scopedFilter = buildScopedFilter(req);
+        filter = { ...filter, ...scopedFilter };
+      } catch {
+        // User doesn't have tenant context, allow legacy behavior
+        filter.organizationId = null;
+      }
+    }
+
+    // Date range filter
     if (from && days) {
       const fromDate = new Date(from as string);
       const toDate = new Date(fromDate);
@@ -61,6 +76,7 @@ router.get('/', async (req, res) => {
     });
 
     // Filter sessions based on user role and session category
+    const isCoach = user.role === 'coach' || req.tenant?.permissions.isCoach;
     const filteredSessions = sessions.filter(session => {
       // Team sessions: everyone can see
       if (session.sessionCategory === 'team') {
@@ -70,7 +86,7 @@ router.get('/', async (req, res) => {
       // Private sessions: creator, attendees, AND coaches can see
       if (session.sessionCategory === 'private') {
         // Coaches can see all private sessions to monitor team activities
-        if (user.role === 'coach') {
+        if (isCoach) {
           return true;
         }
 
@@ -110,7 +126,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user.userId;
+    const userId = req.user.userId;
 
     const session = await prisma.trainingSession.findUnique({
       where: { id },
@@ -123,13 +139,16 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Training session not found' });
     }
 
-    // Check access for private sessions
-    if (session.sessionCategory === 'private') {
-      // Get user to check role
-      const user = await prisma.user.findUnique({ where: { id: userId } });
+    // Check tenant isolation: session must be from user's org or legacy (no org)
+    if (session.organizationId && session.organizationId !== req.tenant?.organizationId) {
+      return res.status(403).json({ error: 'Access denied to this training session' });
+    }
 
+    // Check access for private sessions
+    const isCoach = req.user.role === 'coach' || req.tenant?.permissions.isCoach;
+    if (session.sessionCategory === 'private') {
       // Coaches can see all private sessions
-      if (user?.role === 'coach') {
+      if (isCoach) {
         // Allow access
       } else {
         // For non-coaches, check if user is creator or attendee
@@ -159,7 +178,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const data = createTrainingSchema.parse(req.body);
-    const userId = (req as any).user.userId;
+    const userId = req.user.userId;
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
     if (!user) {
@@ -180,6 +199,9 @@ router.post('/', async (req, res) => {
         time: data.time,
         description: data.description,
         attendees: data.attendees as any,
+        // Multi-tenancy: associate with org and optionally team
+        organizationId: req.tenant?.organizationId || null,
+        teamId: req.tenant?.activeTeamId || null,
       },
     });
 

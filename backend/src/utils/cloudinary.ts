@@ -87,6 +87,21 @@ export async function uploadAvatar(buffer: Buffer, userId: string) {
 }
 
 /**
+ * Upload organization logo
+ */
+export async function uploadOrganizationLogo(buffer: Buffer, organizationId: string) {
+  return uploadImage(buffer, {
+    folder: `${CLOUDINARY_FOLDER}/organizations`,
+    transformation: [
+      { width: 500, height: 500, crop: 'fit' },
+      { quality: 'auto' },
+      { fetch_format: 'auto' },
+    ],
+    publicId: `logo-${organizationId}`,
+  });
+}
+
+/**
  * Upload team logo
  */
 export async function uploadTeamLogo(buffer: Buffer) {

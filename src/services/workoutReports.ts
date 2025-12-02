@@ -161,7 +161,6 @@ export async function saveWorkoutReport(
     allReports.push(savedReport);
     localStorage.setItem(REPORTS_KEY, JSON.stringify(allReports));
 
-    // Try to save to backend if online
     if (isOnline()) {
       try {
         console.log('🔄 Saving workout report to backend...');
@@ -255,16 +254,13 @@ export async function deleteWorkoutReport(reportId: string): Promise<void> {
   localStorage.setItem(DELETED_REPORTS_KEY, JSON.stringify(Array.from(deletedReports)));
   console.log('[WORKOUT REPORTS] Marked report as deleted:', reportId);
 
-  // Try to delete from backend if online
   const online = isOnline();
-  if (online) {
-    try {
-      console.log('[WORKOUT REPORTS] Deleting report from backend:', reportId);
-      await workoutReportService.delete(reportId);
-      console.log('[WORKOUT REPORTS] Report deleted from backend');
-    } catch (error) {
-      console.warn('[WORKOUT REPORTS] Failed to delete report from backend:', error);
-    }
+  try {
+    console.log('[WORKOUT REPORTS] Deleting report from backend:', reportId);
+    await workoutReportService.delete(reportId);
+    console.log('[WORKOUT REPORTS] Report deleted from backend');
+  } catch (error) {
+    console.warn('[WORKOUT REPORTS] Failed to delete report from backend:', error);
   }
 }
 

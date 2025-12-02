@@ -1,4 +1,4 @@
-# 🔒 Security Guidelines - Rhinos Training App
+# 🔒 Security Guidelines - TeamTrainer App
 
 ## ⚠️ ARCHIVOS SENSIBLES - NUNCA SUBIR A GIT
 

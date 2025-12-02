@@ -16,12 +16,12 @@ import {
   Tooltip,
   IconButton,
   CircularProgress,
+  Chip,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useI18n } from '../i18n/I18nProvider';
 import { leaderboardService } from '../services/api';
 import type { Position } from '../types/exercise';
-import { getTeamSettings } from '../services/teamSettings';
 
 const positions: Position[] = ['RB', 'WR', 'LB', 'OL', 'DB', 'QB', 'DL', 'TE', 'K/P'];
 
@@ -31,44 +31,60 @@ interface LeaderboardEntry {
   playerName: string;
   position: string;
   ageCategory?: string;
+  role?: string;
   totalPoints: number;
-  targetPoints: number;
   workoutDays: number;
-  compliancePct: number;
-  attendancePct: number;
-  freeSharePct: number;
-  teamTrainingDays: number;
-  coachWorkoutDays: number;
-  personalWorkoutDays: number;
-  lastUpdated: string;
+  // Legacy fields (may be undefined in new API)
+  targetPoints?: number;
+  compliancePct?: number;
+  attendancePct?: number;
+  freeSharePct?: number;
+  teamTrainingDays?: number;
+  coachWorkoutDays?: number;
+  personalWorkoutDays?: number;
+  lastUpdated?: string;
+}
+
+interface LeaderboardResponse {
+  month: string;
+  leaderboard: LeaderboardEntry[];
+  currentCategory: string | null;
+  availableCategories: string[];
 }
 
 export const Leaderboard: React.FC = () => {
   const { t } = useI18n();
-  const teamSettings = getTeamSettings();
-  const allowedCategories = teamSettings.allowedCategories || [];
 
-  const [window, setWindow] = useState<'7d' | '30d'>('7d');
   const [positionFilter, setPositionFilter] = useState<Position | ''>('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [data, setData] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentMonth, setCurrentMonth] = useState<string>('');
 
   useEffect(() => {
     const loadLeaderboard = async () => {
       try {
         setLoading(true);
-        const response = await leaderboardService.getCurrentWeek();
+        const response = await leaderboardService.getCurrentWeek(
+          selectedCategory || undefined
+        ) as LeaderboardResponse;
 
-        // Filter by position and category
-        let filtered = response.leaderboard;
-
-        if (positionFilter) {
-          filtered = filtered.filter((entry: LeaderboardEntry) => entry.position === positionFilter);
+        // Update available categories from server
+        if (response.availableCategories) {
+          setAvailableCategories(response.availableCategories);
+          // Set selected category if not already set
+          if (!selectedCategory && response.currentCategory) {
+            setSelectedCategory(response.currentCategory);
+          }
         }
 
-        if (categoryFilter) {
-          filtered = filtered.filter((entry: LeaderboardEntry) => entry.ageCategory === categoryFilter);
+        setCurrentMonth(response.month || '');
+
+        // Filter by position locally
+        let filtered = response.leaderboard || [];
+        if (positionFilter) {
+          filtered = filtered.filter((entry: LeaderboardEntry) => entry.position === positionFilter);
         }
 
         setData(filtered);
@@ -81,27 +97,29 @@ export const Leaderboard: React.FC = () => {
     };
 
     loadLeaderboard();
-  }, [positionFilter, categoryFilter]);
+  }, [selectedCategory, positionFilter]);
+
+  // Format month for display (YYYY-MM -> Month YYYY)
+  const formatMonth = (monthStr: string) => {
+    if (!monthStr) return '';
+    const [year, month] = monthStr.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  };
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ mb: 3 }}>
+      <Typography variant="h4" sx={{ mb: 1 }}>
         {t('leaderboard.title')}
       </Typography>
 
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <FormControl sx={{ minWidth: 150 }}>
-          <InputLabel>{t('leaderboard.window')}</InputLabel>
-          <Select
-            value={window}
-            label={t('leaderboard.window')}
-            onChange={(e) => setWindow(e.target.value as '7d' | '30d')}
-          >
-            <MenuItem value="7d">{t('leaderboard.7d')}</MenuItem>
-            <MenuItem value="30d">{t('leaderboard.30d')}</MenuItem>
-          </Select>
-        </FormControl>
+      {currentMonth && (
+        <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 3 }}>
+          {formatMonth(currentMonth)}
+        </Typography>
+      )}
 
+      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
         <FormControl sx={{ minWidth: 200 }}>
           <InputLabel>{t('leaderboard.filterByPosition')}</InputLabel>
           <Select
@@ -120,21 +138,18 @@ export const Leaderboard: React.FC = () => {
           </Select>
         </FormControl>
 
-        {/* Age Category Filter - only show if team has categories configured */}
-        {allowedCategories.length > 0 && (
-          <FormControl sx={{ minWidth: 200 }}>
-            <InputLabel>Age Category</InputLabel>
+        {/* Category Filter - only show if coach has multiple categories */}
+        {availableCategories.length > 1 && (
+          <FormControl sx={{ minWidth: 180 }}>
+            <InputLabel>{t('leaderboard.filterByCategory')}</InputLabel>
             <Select
-              value={categoryFilter}
-              label="Age Category"
-              onChange={(e) => setCategoryFilter(e.target.value)}
+              value={selectedCategory}
+              label={t('leaderboard.filterByCategory')}
+              onChange={(e) => setSelectedCategory(e.target.value)}
             >
-              <MenuItem value="">
-                <em>All Categories</em>
-              </MenuItem>
-              {allowedCategories.map((category) => (
-                <MenuItem key={category} value={category}>
-                  {category}
+              {availableCategories.map((cat) => (
+                <MenuItem key={cat} value={cat}>
+                  {cat}
                 </MenuItem>
               ))}
             </Select>
@@ -181,28 +196,8 @@ export const Leaderboard: React.FC = () => {
               </TableCell>
               <TableCell align="right" sx={{ color: 'white', fontWeight: 600 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-                  {t('leaderboard.compliance')}
-                  <Tooltip title={t('leaderboard.complianceInfo')} arrow>
-                    <IconButton size="small" sx={{ color: 'white', p: 0 }}>
-                      <InfoOutlinedIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              </TableCell>
-              <TableCell align="right" sx={{ color: 'white', fontWeight: 600 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-                  {t('leaderboard.attendance')}
-                  <Tooltip title={t('leaderboard.attendanceInfo')} arrow>
-                    <IconButton size="small" sx={{ color: 'white', p: 0 }}>
-                      <InfoOutlinedIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              </TableCell>
-              <TableCell align="right" sx={{ color: 'white', fontWeight: 600 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-                  {t('leaderboard.freeShare')}
-                  <Tooltip title={t('leaderboard.freeShareInfo')} arrow>
+                  {t('leaderboard.workoutDays')}
+                  <Tooltip title={t('leaderboard.workoutDaysInfo')} arrow>
                     <IconButton size="small" sx={{ color: 'white', p: 0 }}>
                       <InfoOutlinedIcon fontSize="small" />
                     </IconButton>
@@ -214,13 +209,13 @@ export const Leaderboard: React.FC = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                   <CircularProgress />
                 </TableCell>
               </TableRow>
             ) : data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">
                     {t('leaderboard.noData')}
                   </Typography>
@@ -235,15 +230,27 @@ export const Leaderboard: React.FC = () => {
                     '&:last-child td, &:last-child th': { border: 0 },
                   }}
                 >
-                  <TableCell component="th" scope="row" sx={{ fontWeight: 600 }}>
+                  <TableCell component="th" scope="row" sx={{ fontWeight: row.rank <= 3 ? 700 : 600 }}>
                     #{row.rank}
                   </TableCell>
-                  <TableCell>{row.playerName}</TableCell>
+                  <TableCell sx={{ fontWeight: row.rank <= 3 ? 600 : 400 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {row.playerName}
+                      {row.role === 'coach' && (
+                        <Chip
+                          label={t('leaderboard.coach')}
+                          size="small"
+                          color="secondary"
+                          sx={{ height: 20, fontSize: '0.7rem' }}
+                        />
+                      )}
+                    </Box>
+                  </TableCell>
                   <TableCell>{row.position}</TableCell>
-                  <TableCell align="right">{row.totalPoints.toFixed(1)}</TableCell>
-                  <TableCell align="right">{row.compliancePct}%</TableCell>
-                  <TableCell align="right">{row.attendancePct}%</TableCell>
-                  <TableCell align="right">{row.freeSharePct}%</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: row.rank <= 3 ? 600 : 400 }}>
+                    {row.totalPoints.toFixed(1)}
+                  </TableCell>
+                  <TableCell align="right">{row.workoutDays}</TableCell>
                 </TableRow>
               ))
             )}

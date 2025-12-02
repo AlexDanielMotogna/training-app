@@ -58,29 +58,24 @@ export async function saveTestResult(
   // Save locally first
   saveTestResultLocal(testType, testData);
 
-  // Try to sync with backend if online
   const online = isOnline();
-  if (online) {
-    try {
-      console.log('[TEST RESULTS] Syncing test result to backend...', { testType, score, tier });
+  try {
+    console.log('[TEST RESULTS] Syncing test result to backend...', { testType, score, tier });
 
-      const dateISO = testData.dateISO || new Date().toISOString().split('T')[0];
+    const dateISO = testData.dateISO || new Date().toISOString().split('T')[0];
 
-      await testResultService.create({
-        testType,
-        dateISO,
-        testData,
-        score,
-        tier,
-      });
+    await testResultService.create({
+      testType,
+      dateISO,
+      testData,
+      score,
+      tier,
+    });
 
-      console.log('[TEST RESULTS] Test result synced to backend successfully');
-    } catch (error) {
-      console.warn('[TEST RESULTS] Failed to sync to backend, keeping local changes:', error);
-      // Keep local changes even if backend sync fails
-    }
-  } else {
-    console.log('[TEST RESULTS] Offline - test saved locally only');
+    console.log('[TEST RESULTS] Test result synced to backend successfully');
+  } catch (error) {
+    console.warn('[TEST RESULTS] Failed to sync to backend, keeping local changes:', error);
+    // Keep local changes even if backend sync fails
   }
 }
 
@@ -156,7 +151,6 @@ export async function deleteTestResult(testType: string, testId?: string): Promi
     console.log(`[TEST RESULTS] Test deleted locally: ${testType}`);
   }
 
-  // Try to delete from backend if online and testId is provided
   if (isOnline() && testId) {
     try {
       await testResultService.delete(testId);

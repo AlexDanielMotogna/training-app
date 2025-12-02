@@ -1,7 +1,7 @@
 {
-  "name": "rhinos-training-backend",
+  "name": "teamtrainer-backend",
   "version": "1.0.0",
-  "description": "Rhinos Training App - Backend API",
+  "description": "TeamTrainer - Multi-tenant Sports Training Platform API",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@getbrevo/brevo": "^2.2.0",
-    "@prisma/client": "^6.18.0",
+    "@prisma/client": "^6.19.0",
     "@types/node-cron": "^3.0.11",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.5.1",
