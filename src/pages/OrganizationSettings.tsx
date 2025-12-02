@@ -792,13 +792,13 @@ export const OrganizationSettings: React.FC = () => {
                               <TableCell>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                   <Avatar
-                                    src={member.user.profilePicture}
+                                    src={member.user.avatarUrl}
                                     sx={{ width: 32, height: 32 }}
                                   >
-                                    {member.user.firstName.charAt(0)}
+                                    {member.user.name.charAt(0)}
                                   </Avatar>
                                   <Typography variant="body2">
-                                    {member.user.firstName} {member.user.lastName}
+                                    {member.user.name}
                                   </Typography>
                                 </Box>
                               </TableCell>

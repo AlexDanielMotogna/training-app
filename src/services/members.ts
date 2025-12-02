@@ -13,9 +13,8 @@ export interface OrganizationMember {
   user: {
     id: string;
     email: string;
-    firstName: string;
-    lastName: string;
-    profilePicture?: string;
+    name: string;
+    avatarUrl?: string;
   };
 }
 

@@ -506,9 +506,8 @@ router.get('/:id/members', requireTenant, requireOrgAdmin, async (req, res) => {
           select: {
             id: true,
             email: true,
-            firstName: true,
-            lastName: true,
-            profilePicture: true,
+            name: true,
+            avatarUrl: true,
           },
         },
       },
