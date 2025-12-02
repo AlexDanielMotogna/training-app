@@ -734,7 +734,7 @@ router.delete('/:id/invitations/:invitationId', requireTenant, requireOrgAdmin, 
 });
 
 // PATCH /api/organizations/:id/members/:memberId - Update member role/permissions (admin+)
-const updateMemberSchema = z.object({
+const updateMemberPermissionsSchema = z.object({
   role: z.enum(['admin', 'coach', 'player']).optional(),
   canManageMembers: z.boolean().optional(),
   canManageContent: z.boolean().optional(),
@@ -745,7 +745,7 @@ const updateMemberSchema = z.object({
 router.patch('/:id/members/:memberId', requireTenant, requireOrgAdmin, async (req, res) => {
   try {
     const { id, memberId } = req.params;
-    const body = updateMemberSchema.parse(req.body);
+    const body = updateMemberPermissionsSchema.parse(req.body);
 
     if (req.tenant!.organizationId !== id) {
       return res.status(403).json({ error: 'Access denied' });
