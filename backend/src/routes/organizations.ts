@@ -625,7 +625,7 @@ router.post('/:id/members/invite', requireTenant, requireOrgAdmin, async (req, r
         teamIds: body.teamIds,
         token,
         expiresAt,
-        invitedBy: req.user!.id,
+        invitedBy: req.user!.userId,
       },
     });
 
@@ -815,7 +815,7 @@ router.delete('/:id/members/:memberId', requireTenant, requireOrgAdmin, async (r
     }
 
     // Prevent removing yourself
-    if (member.userId === req.user!.id) {
+    if (member.userId === req.user!.userId) {
       return res.status(403).json({ error: 'Cannot remove yourself from the organization' });
     }
 
