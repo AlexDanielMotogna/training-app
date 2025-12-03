@@ -3,6 +3,7 @@ export const messagesEN = {
   'app.title': 'teamTraining',
 
   // Navigation
+  'nav.dashboard': 'Dashboard',
   'nav.myTraining': 'My Training',
   'nav.myStats': 'My Stats',
   'nav.tests': 'Tests',

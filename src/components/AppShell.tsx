@@ -17,6 +17,7 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
+import DashboardIcon from '@mui/icons-material/Dashboard';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import AssessmentIcon from '@mui/icons-material/Assessment';
@@ -98,6 +99,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   }, []);
 
   const menuItems = [
+    { key: 'dashboard', label: t('nav.dashboard'), icon: <DashboardIcon />, path: '/dashboard', showForAll: true },
     { key: 'myTraining', label: t('nav.myTraining'), icon: <FitnessCenterIcon />, path: '/training', showForAll: true },
     { key: 'myCalendar', label: t('nav.myCalendar'), icon: <CalendarMonthIcon />, path: '/stats', showForAll: true },
     { key: 'tests', label: t('nav.tests'), icon: <AssessmentIcon />, path: '/tests', showForAll: true },
