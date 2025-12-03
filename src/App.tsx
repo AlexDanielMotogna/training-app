@@ -67,6 +67,7 @@ const createLazyComponent = (
 const Landing = createLazyComponent(() => import('./pages/public').then(m => ({ default: m.Landing })), 'Landing');
 const Pricing = createLazyComponent(() => import('./pages/public').then(m => ({ default: m.Pricing })), 'Pricing');
 const Signup = createLazyComponent(() => import('./pages/public').then(m => ({ default: m.Signup })), 'Signup');
+const Join = createLazyComponent(() => import('./pages/public').then(m => ({ default: m.Join })), 'Join');
 
 // Auth pages
 const Auth = createLazyComponent(() => import('./pages/Auth').then(m => ({ default: m.Auth })), 'Auth');
@@ -284,6 +285,10 @@ function App() {
             <Route
               path="/reset-password"
               element={<ErrorBoundary><Suspense fallback={<LoadingSpinner />}><ResetPassword /></Suspense></ErrorBoundary>}
+            />
+            <Route
+              path="/join"
+              element={<ErrorBoundary><Suspense fallback={<LoadingSpinner />}><Join /></Suspense></ErrorBoundary>}
             />
 
             {/* Protected routes - require authentication */}

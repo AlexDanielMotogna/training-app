@@ -30,6 +30,7 @@ import matchRoutes from './routes/matches.js';
 import sseRoutes from './routes/sse.js';
 import organizationRoutes from './routes/organizations.js';
 import teamRoutes from './routes/teams.js';
+import invitationRoutes from './routes/invitations.js';
 import { startCronJobs } from './utils/cronJobs.js';
 
 // Load environment variables
@@ -108,6 +109,7 @@ app.use('/api/sse', sseRoutes);
 // Multi-tenant routes
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/organizations/:orgId/teams', teamRoutes);
+app.use('/api/invitations', invitationRoutes);
 
 // 404 handler
 app.use((req, res) => {
