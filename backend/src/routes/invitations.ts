@@ -3,6 +3,7 @@ import prisma from '../utils/prisma.js';
 import { authenticate } from '../middleware/auth.js';
 import { generateToken, type JWTPayload } from '../utils/jwt.js';
 import bcrypt from 'bcryptjs';
+import { sseManager } from '../utils/sseManager.js';
 
 const router = express.Router();
 
@@ -18,6 +19,7 @@ router.get('/verify/:token', async (req, res) => {
           select: {
             id: true,
             name: true,
+            sportId: true,
           },
         },
       },
@@ -30,15 +32,31 @@ router.get('/verify/:token', async (req, res) => {
     const isExpired = new Date(invitation.expiresAt) < new Date();
     const isAccepted = invitation.acceptedAt !== null;
 
-    res.json({
+    // Get sport and positions
+    const sport = await prisma.sport.findUnique({
+      where: { id: invitation.organization.sportId },
+      include: {
+        positions: {
+          orderBy: { displayOrder: 'asc' },
+        },
+      },
+    });
+
+    const response = {
       organizationId: invitation.organizationId,
       organizationName: invitation.organization.name,
+      sportId: invitation.organization.sportId,
+      sportName: sport?.name || 'Unknown',
+      positions: sport?.positions || [],
       email: invitation.email,
       role: invitation.role,
       expiresAt: invitation.expiresAt,
       isExpired,
       isAccepted,
-    });
+    };
+
+    console.log('[INVITATIONS] Verify response:', JSON.stringify(response, null, 2));
+    res.json(response);
   } catch (error) {
     console.error('[INVITATIONS] Verify error:', error);
     res.status(500).json({ error: 'Failed to verify invitation' });
@@ -135,6 +153,15 @@ router.post('/accept', authenticate, async (req, res) => {
 
     console.log(`[INVITATIONS] User ${userId} accepted invitation to org ${invitation.organizationId}`);
 
+    // Broadcast invitation accepted event via SSE
+    sseManager.broadcastToOrganization(invitation.organizationId, 'invitation:accepted', {
+      invitationId: invitation.id,
+      userId,
+      email: invitation.email,
+      role: invitation.role,
+      timestamp: new Date().toISOString(),
+    });
+
     res.json({
       message: 'Invitation accepted successfully',
       organizationId: invitation.organizationId,
@@ -149,7 +176,18 @@ router.post('/accept', authenticate, async (req, res) => {
 // POST /api/invitations/signup - Signup with invitation (public)
 router.post('/signup', async (req, res) => {
   try {
-    const { token, name, password } = req.body;
+    const {
+      token,
+      name,
+      password,
+      // Player-specific fields
+      birthDate,
+      sex,
+      weightKg,
+      heightCm,
+      position,
+      jerseyNumber,
+    } = req.body;
 
     if (!token || !name || !password) {
       return res.status(400).json({ error: 'Token, name, and password are required' });
@@ -174,6 +212,23 @@ router.post('/signup', async (req, res) => {
       return res.status(400).json({ error: 'Invitation has already been accepted' });
     }
 
+    // Validate player-specific fields if role is player
+    if (invitation.role === 'player') {
+      if (!birthDate || !sex || !weightKg || !heightCm || !position) {
+        return res.status(400).json({
+          error: 'Player profile requires: birthDate, sex, weightKg, heightCm, and position'
+        });
+      }
+
+      // Validate number ranges
+      if (weightKg < 50 || weightKg > 200) {
+        return res.status(400).json({ error: 'Weight must be between 50 and 200 kg' });
+      }
+      if (heightCm < 150 || heightCm > 220) {
+        return res.status(400).json({ error: 'Height must be between 150 and 220 cm' });
+      }
+    }
+
     // Check if user with this email already exists
     const existingUser = await prisma.user.findUnique({
       where: { email: invitation.email },
@@ -188,15 +243,30 @@ router.post('/signup', async (req, res) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
+    // Prepare user data
+    const userData: any = {
+      email: invitation.email,
+      passwordHash,
+      name,
+      organizationId: invitation.organizationId,
+      role: invitation.role === 'coach' ? 'coach' : 'player', // Legacy role field
+    };
+
+    // Add player-specific fields if role is player
+    if (invitation.role === 'player') {
+      userData.birthDate = birthDate; // ISO date string (YYYY-MM-DD)
+      userData.sex = sex;
+      userData.weightKg = weightKg;
+      userData.heightCm = heightCm;
+      userData.position = position;
+      if (jerseyNumber) {
+        userData.jerseyNumber = parseInt(jerseyNumber);
+      }
+    }
+
     // Create user
     const user = await prisma.user.create({
-      data: {
-        email: invitation.email,
-        passwordHash,
-        name,
-        organizationId: invitation.organizationId,
-        role: invitation.role === 'coach' ? 'coach' : 'player', // Legacy role field
-      },
+      data: userData,
     });
 
     // Create organization member
@@ -233,6 +303,16 @@ router.post('/signup', async (req, res) => {
 
     console.log(`[INVITATIONS] New user ${user.id} signed up via invitation to org ${invitation.organizationId}`);
 
+    // Broadcast invitation accepted event via SSE
+    sseManager.broadcastToOrganization(invitation.organizationId, 'invitation:accepted', {
+      invitationId: invitation.id,
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      role: invitation.role,
+      timestamp: new Date().toISOString(),
+    });
+
     res.json({
       message: 'Account created and invitation accepted',
       token: authToken,
@@ -242,6 +322,12 @@ router.post('/signup', async (req, res) => {
         name: user.name,
         role: user.role,
         organizationId: user.organizationId,
+        jerseyNumber: user.jerseyNumber,
+        position: user.position,
+        birthDate: user.birthDate,
+        sex: user.sex,
+        weightKg: user.weightKg,
+        heightCm: user.heightCm,
       },
     });
   } catch (error) {

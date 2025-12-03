@@ -9,6 +9,7 @@ interface SSEClient {
   id: string;
   response: Response;
   pollId?: string;
+  organizationId?: string;
 }
 
 class SSEManager {
@@ -17,7 +18,7 @@ class SSEManager {
   /**
    * Add a new SSE client connection
    */
-  addClient(clientId: string, response: Response, pollId?: string): void {
+  addClient(clientId: string, response: Response, pollId?: string, organizationId?: string): void {
     // Set SSE headers
     response.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -30,9 +31,9 @@ class SSEManager {
     this.sendEvent(response, 'connected', { clientId, timestamp: new Date().toISOString() });
 
     // Store client
-    this.clients.set(clientId, { id: clientId, response, pollId });
+    this.clients.set(clientId, { id: clientId, response, pollId, organizationId });
 
-    console.log(`[SSE] Client ${clientId} connected${pollId ? ` to poll ${pollId}` : ''}`);
+    console.log(`[SSE] Client ${clientId} connected${pollId ? ` to poll ${pollId}` : ''}${organizationId ? ` to org ${organizationId}` : ''}`);
     console.log(`[SSE] Total clients: ${this.clients.size}`);
 
     // Handle client disconnect
@@ -78,6 +79,22 @@ class SSEManager {
       }
     });
     console.log(`[SSE] Broadcasted ${event} to ${count} clients for poll ${pollId}`);
+    return count;
+  }
+
+  /**
+   * Broadcast event to all clients watching a specific organization
+   */
+  broadcastToOrganization(organizationId: string, event: string, data: any): number {
+    let count = 0;
+    this.clients.forEach((client) => {
+      if (client.organizationId === organizationId) {
+        if (this.sendEvent(client.response, event, data)) {
+          count++;
+        }
+      }
+    });
+    console.log(`[SSE] Broadcasted ${event} to ${count} clients for org ${organizationId}`);
     return count;
   }
 

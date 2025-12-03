@@ -269,64 +269,6 @@ router.get('/:id/members', requireTenant, async (req, res) => {
   }
 });
 
-// DELETE /api/organizations/:id/members/:userId - Remove member (admin+)
-router.delete('/:id/members/:userId', requireTenant, requireOrgAdmin, async (req, res) => {
-  try {
-    const { id, userId } = req.params;
-
-    if (req.tenant!.organizationId !== id) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    // Get membership to check role
-    const membership = await prisma.organizationMember.findUnique({
-      where: {
-        organizationId_userId: {
-          organizationId: id,
-          userId: userId,
-        },
-      },
-    });
-
-    if (!membership) {
-      return res.status(404).json({ error: 'Member not found' });
-    }
-
-    // Cannot remove owner
-    if (membership.role === 'owner') {
-      return res.status(400).json({ error: 'Cannot remove the organization owner' });
-    }
-
-    // Admin cannot remove another admin (only owner can)
-    if (membership.role === 'admin' && !req.tenant!.permissions.isOwner) {
-      return res.status(403).json({ error: 'Only the owner can remove admins' });
-    }
-
-    // Remove from organization
-    await prisma.organizationMember.delete({
-      where: {
-        organizationId_userId: {
-          organizationId: id,
-          userId: userId,
-        },
-      },
-    });
-
-    // Also remove from all teams in this org
-    await prisma.teamMember.deleteMany({
-      where: {
-        userId: userId,
-        team: { organizationId: id },
-      },
-    });
-
-    console.log(`[ORGANIZATIONS] Member removed: ${userId} from ${id}`);
-    res.json({ message: 'Member removed successfully' });
-  } catch (error) {
-    console.error('[ORGANIZATIONS] Remove member error:', error);
-    res.status(500).json({ error: 'Failed to remove member' });
-  }
-});
 
 // PATCH /api/organizations/:id/members/:userId - Update member role (admin+)
 const updateMemberSchema = z.object({
@@ -843,12 +785,85 @@ router.delete('/:id/members/:memberId', requireTenant, requireOrgAdmin, async (r
       return res.status(403).json({ error: 'Cannot remove yourself from the organization' });
     }
 
+    // Store userId before deletion to return in response
+    const removedUserId = member.userId;
+
+    // Delete member from organization
     await prisma.organizationMember.delete({
       where: { id: memberId },
     });
 
-    console.log(`[ORGANIZATIONS] Member ${memberId} removed from ${id}`);
-    res.json({ message: 'Member removed successfully' });
+    // Also remove from all teams in this organization
+    await prisma.teamMember.deleteMany({
+      where: {
+        userId: removedUserId,
+        team: { organizationId: id },
+      },
+    });
+
+    // Delete all user-related data
+    console.log(`[ORGANIZATIONS] Deleting all data for user ${removedUserId}`);
+
+    // Delete workout logs
+    await prisma.workoutLog.deleteMany({
+      where: { userId: removedUserId },
+    });
+
+    // Delete workout reports
+    await prisma.workoutReport.deleteMany({
+      where: { userId: removedUserId },
+    });
+
+    // Delete user plans
+    await prisma.userPlan.deleteMany({
+      where: { userId: removedUserId },
+    });
+
+    // Delete notifications
+    await prisma.notification.deleteMany({
+      where: { userId: removedUserId },
+    });
+
+    // Delete test results
+    await prisma.testResult.deleteMany({
+      where: { userId: removedUserId },
+    });
+
+    // Delete player weekly points (leaderboard)
+    await prisma.playerWeeklyPoints.deleteMany({
+      where: { userId: removedUserId },
+    });
+
+    // Delete video progress
+    await prisma.videoProgress.deleteMany({
+      where: { userId: removedUserId },
+    });
+
+    // Delete attendance poll votes
+    await prisma.attendancePollVote.deleteMany({
+      where: { userId: removedUserId },
+    });
+
+    // Delete training assignments created by user
+    await prisma.trainingAssignment.deleteMany({
+      where: { assignedBy: removedUserId },
+    });
+
+    // Delete invitations sent by user
+    await prisma.invitation.deleteMany({
+      where: { invitedBy: removedUserId },
+    });
+
+    // Finally, delete the user account
+    await prisma.user.delete({
+      where: { id: removedUserId },
+    });
+
+    console.log(`[ORGANIZATIONS] User ${removedUserId} and all related data deleted successfully`);
+    res.json({
+      message: 'Member removed and account deleted successfully',
+      userId: removedUserId // Return userId so frontend can check if it's current user
+    });
   } catch (error) {
     console.error('[ORGANIZATIONS] Remove member error:', error);
     res.status(500).json({ error: 'Failed to remove member' });

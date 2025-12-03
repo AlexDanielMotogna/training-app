@@ -89,4 +89,34 @@ router.get('/polls', (req, res) => {
   });
 });
 
+/**
+ * GET /api/sse/organizations/:orgId - Subscribe to organization updates
+ * Returns real-time updates for members, invitations, etc.
+ */
+router.get('/organizations/:orgId', (req, res) => {
+  const { orgId } = req.params;
+  const userId = (req as any).user.userId;
+  const clientId = `${userId}-${randomUUID()}`;
+
+  console.log(`[SSE] Client ${userId} subscribing to org ${orgId}`);
+
+  // Add client to SSE manager for this organization
+  sseManager.addClient(clientId, res, undefined, orgId);
+
+  // Keep connection alive with periodic heartbeat
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(':heartbeat\n\n');
+    } catch (error) {
+      clearInterval(heartbeat);
+    }
+  }, 30000); // Every 30 seconds
+
+  // Clean up on disconnect
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    sseManager.removeClient(clientId);
+  });
+});
+
 export default router;

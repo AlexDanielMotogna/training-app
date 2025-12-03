@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -49,7 +49,8 @@ import SendIcon from '@mui/icons-material/Send';
 import { useOrganization, useOrgPermission } from '../contexts/OrganizationContext';
 import { useI18n } from '../i18n/I18nProvider';
 import { toastService } from '../services/toast';
-import { getAuthToken } from '../services/api';
+import { getAuthToken, clearAuthToken } from '../services/api';
+import { getCurrentUser } from '../services/userProfile';
 import {
   getOrganizationMembers,
   getOrganizationInvitations,
@@ -60,6 +61,7 @@ import {
   type OrganizationMember,
   type Invitation,
 } from '../services/members';
+import { useOrganizationSSE } from '../hooks/useOrganizationSSE';
 
 const DEFAULT_LOGO = '/teamtraining-logo.svg';
 
@@ -241,7 +243,7 @@ export const OrganizationSettings: React.FC = () => {
     }
   }, [activeTab, organization]);
 
-  const loadMembersAndInvitations = async () => {
+  const loadMembersAndInvitations = useCallback(async () => {
     if (!organization) return;
 
     setIsLoadingMembers(true);
@@ -260,7 +262,19 @@ export const OrganizationSettings: React.FC = () => {
     } finally {
       setIsLoadingMembers(false);
     }
-  };
+  }, [organization]);
+
+  // Callback for SSE events
+  const handleSSEEvent = useCallback((event: any) => {
+    if (event.event === 'invitation:accepted') {
+      console.log('[SSE] Invitation accepted, refreshing members list');
+      toastService.success('New member joined the organization!');
+      loadMembersAndInvitations();
+    }
+  }, [loadMembersAndInvitations]);
+
+  // SSE for real-time updates when invitations are accepted
+  useOrganizationSSE(organization?.id, handleSSEEvent);
 
   const handleSendInvite = async () => {
     if (!organization || !inviteEmail || !inviteRole) {
@@ -329,9 +343,31 @@ export const OrganizationSettings: React.FC = () => {
     }
 
     try {
-      await removeMember(organization.id, memberId);
+      const result = await removeMember(organization.id, memberId);
       toastService.success(t('orgSettings.members.removed'));
-      await loadMembersAndInvitations();
+
+      // Check if the removed user is the current user
+      const currentUser = getCurrentUser();
+      console.log('[ORGANIZATIONS] Checking if current user was removed');
+      console.log('[ORGANIZATIONS] Current user:', currentUser);
+      console.log('[ORGANIZATIONS] Removed userId:', result.userId);
+      console.log('[ORGANIZATIONS] Match:', currentUser?.id === result.userId);
+
+      if (currentUser && result.userId === currentUser.id) {
+        // User removed themselves or was removed - log them out
+        console.log('[ORGANIZATIONS] Current user was removed from organization - logging out');
+        toastService.info('You have been removed from the organization. Logging out...');
+
+        // Wait a moment for the toast to show
+        setTimeout(() => {
+          clearAuthToken();
+          window.location.href = '/auth';
+        }, 2000);
+      } else {
+        // Reload members list if it wasn't current user
+        console.log('[ORGANIZATIONS] Different user was removed, reloading members list');
+        await loadMembersAndInvitations();
+      }
     } catch (error) {
       console.error('Failed to remove member:', error);
       toastService.error('Failed to remove member');

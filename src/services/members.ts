@@ -184,11 +184,12 @@ export async function updateMember(
 
 /**
  * Remove a member from the organization
+ * Returns the userId of the removed member
  */
 export async function removeMember(
   organizationId: string,
   memberId: string
-): Promise<void> {
+): Promise<{ userId: string }> {
   const token = getAuthToken();
   const response = await fetch(`/api/organizations/${organizationId}/members/${memberId}`, {
     method: 'DELETE',
@@ -201,4 +202,6 @@ export async function removeMember(
     const error = await response.json();
     throw new Error(error.error || 'Failed to remove member');
   }
+
+  return response.json();
 }
