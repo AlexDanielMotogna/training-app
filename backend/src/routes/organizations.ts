@@ -585,18 +585,24 @@ router.post('/:id/members/invite', requireTenant, requireOrgAdmin, async (req, r
       }
     }
 
-    // Check if there's already a pending invitation
+    // Check if there's already an invitation (any status)
     const existingInvitation = await prisma.invitation.findFirst({
       where: {
         organizationId: id,
         email: body.email,
-        acceptedAt: null,
-        expiresAt: { gt: new Date() },
       },
     });
 
     if (existingInvitation) {
-      return res.status(400).json({ error: 'An invitation has already been sent to this email' });
+      // If invitation is still pending and not expired, return error
+      if (!existingInvitation.acceptedAt && existingInvitation.expiresAt > new Date()) {
+        return res.status(400).json({ error: 'An invitation has already been sent to this email' });
+      }
+
+      // If invitation is expired or accepted, delete it so we can create a new one
+      await prisma.invitation.delete({
+        where: { id: existingInvitation.id },
+      });
     }
 
     // Get organization details for email
@@ -629,12 +635,18 @@ router.post('/:id/members/invite', requireTenant, requireOrgAdmin, async (req, r
       },
     });
 
+    // Get inviter's name for email
+    const inviter = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { name: true },
+    });
+
     // Send invitation email
     const { sendInvitationEmail } = await import('../utils/email.js');
     await sendInvitationEmail({
       email: body.email,
       organizationName: organization.name,
-      inviterName: `${req.user!.firstName} ${req.user!.lastName}`,
+      inviterName: inviter?.name || 'Your coach',
       role: body.role,
       invitationToken: token,
     });
@@ -690,12 +702,18 @@ router.post('/:id/invitations/:invitationId/resend', requireTenant, requireOrgAd
       return res.status(404).json({ error: 'Organization not found' });
     }
 
+    // Get inviter's name for email
+    const inviter = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { name: true },
+    });
+
     // Resend email
     const { sendInvitationEmail } = await import('../utils/email.js');
     await sendInvitationEmail({
       email: invitation.email,
       organizationName: organization.name,
-      inviterName: `${req.user!.firstName} ${req.user!.lastName}`,
+      inviterName: inviter?.name || 'Your coach',
       role: invitation.role,
       invitationToken: invitation.token,
     });
