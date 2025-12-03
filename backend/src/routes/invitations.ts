@@ -2,7 +2,7 @@ import express from 'express';
 import { prisma } from '../index.js';
 import { requireAuth } from '../middleware/auth.js';
 import { generateToken, type JWTPayload } from '../utils/jwt.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 const router = express.Router();
 
