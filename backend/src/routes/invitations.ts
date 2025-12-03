@@ -1,6 +1,6 @@
 import express from 'express';
-import { prisma } from '../index.js';
-import { requireAuth } from '../middleware/auth.js';
+import prisma from '../utils/prisma.js';
+import { authenticate } from '../middleware/auth.js';
 import { generateToken, type JWTPayload } from '../utils/jwt.js';
 import bcrypt from 'bcryptjs';
 
@@ -46,7 +46,7 @@ router.get('/verify/:token', async (req, res) => {
 });
 
 // POST /api/invitations/accept - Accept invitation (requires auth)
-router.post('/accept', requireAuth, async (req, res) => {
+router.post('/accept', authenticate, async (req, res) => {
   try {
     const { token } = req.body;
     const userId = req.user!.userId;
