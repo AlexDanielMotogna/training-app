@@ -68,7 +68,7 @@
 
 ---
 
-### ✅ 2. Member Management (COMPLETED - Ready for Testing)
+### ✅ 2. Member Management (COMPLETED - Backend Running, Ready for Testing)
 
 #### Backend Implementation
 - ✅ Created `POST /api/organizations/:id/members/invite` endpoint
@@ -138,10 +138,26 @@
   - role, permissions
   - joinedAt, invitedBy
 
+#### Invitation Acceptance Flow
+- ✅ Created `backend/src/routes/invitations.ts` with 3 endpoints:
+  - GET /api/invitations/verify/:token - Verify invitation validity
+  - POST /api/invitations/accept - Accept invitation (authenticated users)
+  - POST /api/invitations/signup - Signup with invitation (new users)
+- ✅ Created `src/pages/public/Join.tsx` - Dynamic UI for invitation acceptance
+  - Shows signup form for new users
+  - Shows accept button for logged-in users
+  - Displays organization name and role
+  - Handles expired/accepted invitations
+- ✅ Registered /join route in App.tsx
+- ✅ Backend running successfully on port 5000
+
 #### Testing
 - ⏳ Manual testing pending
 - ⏳ Email delivery verification pending
-- ⏳ Invitation acceptance flow (join page) - not yet implemented
+- ⏳ Test invitation acceptance flow:
+  - Click invitation link from email → should load /join page
+  - Test signup for new users (creates account + joins org)
+  - Test accept for logged-in users (email verification + joins org)
 
 ---
 
