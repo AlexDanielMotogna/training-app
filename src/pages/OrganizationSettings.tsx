@@ -250,6 +250,8 @@ export const OrganizationSettings: React.FC = () => {
         getOrganizationMembers(organization.id),
         getOrganizationInvitations(organization.id),
       ]);
+      console.log('[FRONTEND] Loaded members:', membersData.length);
+      console.log('[FRONTEND] Loaded invitations:', invitationsData.length, invitationsData);
       setMembers(membersData);
       setInvitations(invitationsData);
     } catch (error) {

@@ -533,15 +533,21 @@ router.get('/:id/invitations', requireTenant, requireOrgAdmin, async (req, res) 
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const invitations = await prisma.invitation.findMany({
+    // Fetch ALL invitations for this organization (Prisma MongoDB has issues with null and DateTime filters)
+    const allInvitations = await prisma.invitation.findMany({
       where: {
         organizationId: id,
-        acceptedAt: null, // Only pending invitations
-        expiresAt: { gt: new Date() }, // Not expired
       },
       orderBy: { createdAt: 'desc' },
     });
 
+    // Filter in JavaScript for pending (not accepted and not expired) invitations
+    const now = new Date();
+    const invitations = allInvitations.filter(inv =>
+      inv.acceptedAt === null && new Date(inv.expiresAt) > now
+    );
+
+    console.log(`[ORGANIZATIONS] Found ${invitations.length} pending invitations for ${id} (filtered from ${allInvitations.length} total)`);
     res.json(invitations);
   } catch (error) {
     console.error('[ORGANIZATIONS] Get invitations error:', error);

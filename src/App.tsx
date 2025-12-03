@@ -74,6 +74,7 @@ const Auth = createLazyComponent(() => import('./pages/Auth').then(m => ({ defau
 const ResetPassword = createLazyComponent(() => import('./pages/ResetPassword'), 'ResetPassword');
 
 // Protected pages
+const Dashboard = createLazyComponent(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })), 'Dashboard');
 const MyTraining = createLazyComponent(() => import('./pages/MyTraining').then(m => ({ default: m.MyTraining })), 'MyTraining');
 const MyStats = createLazyComponent(() => import('./pages/MyStats').then(m => ({ default: m.MyStats })), 'MyStats');
 const Profile = createLazyComponent(() => import('./pages/Profile').then(m => ({ default: m.Profile })), 'Profile');
@@ -263,7 +264,7 @@ function App() {
             <Route
               path="/"
               element={
-                currentUser ? <Navigate to="/training" replace /> : <ErrorBoundary><Suspense fallback={<LoadingSpinner />}><Landing /></Suspense></ErrorBoundary>
+                currentUser ? <Navigate to="/dashboard" replace /> : <ErrorBoundary><Suspense fallback={<LoadingSpinner />}><Landing /></Suspense></ErrorBoundary>
               }
             />
             <Route
@@ -273,13 +274,13 @@ function App() {
             <Route
               path="/signup"
               element={
-                currentUser ? <Navigate to="/training" replace /> : <ErrorBoundary><Suspense fallback={<LoadingSpinner />}><Signup /></Suspense></ErrorBoundary>
+                currentUser ? <Navigate to="/dashboard" replace /> : <ErrorBoundary><Suspense fallback={<LoadingSpinner />}><Signup /></Suspense></ErrorBoundary>
               }
             />
             <Route
               path="/login"
               element={
-                currentUser ? <Navigate to="/training" replace /> : <ErrorBoundary><Suspense fallback={<LoadingSpinner />}><Auth /></Suspense></ErrorBoundary>
+                currentUser ? <Navigate to="/dashboard" replace /> : <ErrorBoundary><Suspense fallback={<LoadingSpinner />}><Auth /></Suspense></ErrorBoundary>
               }
             />
             <Route
@@ -294,6 +295,7 @@ function App() {
             {/* Protected routes - require authentication */}
             {currentUser ? (
               <Route element={<AppShell><ErrorBoundary><Suspense fallback={<LoadingSpinner />}><Outlet /></Suspense></ErrorBoundary></AppShell>}>
+                <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/training" element={<MyTraining />} />
                 <Route path="/stats" element={<MyStats />} />
                 <Route path="/spielplan" element={<Spielplan />} />
@@ -315,7 +317,7 @@ function App() {
                   element={
                     currentUser.role === 'coach'
                       ? <VideosAdmin />
-                      : <Navigate to="/training" replace />
+                      : <Navigate to="/dashboard" replace />
                   }
                 />
                 <Route
@@ -323,7 +325,7 @@ function App() {
                   element={
                     currentUser.role === 'coach'
                       ? <Reports />
-                      : <Navigate to="/training" replace />
+                      : <Navigate to="/dashboard" replace />
                   }
                 />
                 <Route
@@ -331,7 +333,7 @@ function App() {
                   element={
                     currentUser.role === 'coach'
                       ? <Admin />
-                      : <Navigate to="/training" replace />
+                      : <Navigate to="/dashboard" replace />
                   }
                 />
                 <Route
@@ -339,7 +341,7 @@ function App() {
                   element={
                     currentUser.role === 'coach'
                       ? <DrillSessionsManage />
-                      : <Navigate to="/training" replace />
+                      : <Navigate to="/dashboard" replace />
                   }
                 />
                 <Route
@@ -347,10 +349,10 @@ function App() {
                   element={
                     currentUser.role === 'coach'
                       ? <OrganizationSettings />
-                      : <Navigate to="/training" replace />
+                      : <Navigate to="/dashboard" replace />
                   }
                 />
-                <Route path="*" element={<Navigate to="/training" replace />} />
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Route>
             ) : (
               <Route path="*" element={<Navigate to="/" replace />} />

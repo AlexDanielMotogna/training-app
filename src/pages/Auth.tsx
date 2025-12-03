@@ -89,10 +89,8 @@ export const Auth: React.FC = () => {
         toastService.loginSuccess(name || email);
       }
 
-      // Navigate to training page
-      navigate('/training');
-      // Force reload to update app state
-      window.location.reload();
+      // Redirect to dashboard (using window.location to ensure reload and proper state update)
+      window.location.href = '/dashboard';
     } catch (err: any) {
       const errorMsg = err.message || (isSignup ? 'Failed to create account' : 'Failed to login');
       setError(errorMsg);
