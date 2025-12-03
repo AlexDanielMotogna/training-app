@@ -22,15 +22,46 @@ import {
   Stack,
 } from '@mui/material';
 import {
-  SportsFootball as SportsIcon,
+  SportsFootball,
+  SportsBasketball,
+  SportsSoccer,
+  SportsVolleyball,
+  SportsHandball,
+  SportsRugby,
+  SportsHockey,
+  SportsBaseball,
+  Sports as SportsGeneric,
   Close as CloseIcon,
   Info as InfoIcon,
 } from '@mui/icons-material';
 import { useI18n } from '../i18n/I18nProvider';
+import { useOrganization } from '../contexts/OrganizationContext';
 import { drillService, syncDrillsFromBackend } from '../services/drillService';
 import { equipmentService, syncEquipmentFromBackend } from '../services/equipmentService';
 import { drillCategoryService, syncDrillCategoriesFromBackend, DrillCategory as ManagedCategory } from '../services/drillCategoryService';
 import { Drill, DrillDifficulty, Equipment } from '../types/drill';
+
+// Sport icon mapping based on sport name
+const getSportIcon = (sportName?: string) => {
+  if (!sportName) return SportsGeneric;
+
+  const sportLower = sportName.toLowerCase();
+
+  if (sportLower.includes('football') || sportLower.includes('american')) return SportsFootball;
+  if (sportLower.includes('basketball')) return SportsBasketball;
+  if (sportLower.includes('soccer') || sportLower.includes('fútbol') || sportLower.includes('futbol')) return SportsSoccer;
+  if (sportLower.includes('volleyball') || sportLower.includes('voleibol')) return SportsVolleyball;
+  if (sportLower.includes('handball') || sportLower.includes('balonmano')) return SportsHandball;
+  if (sportLower.includes('rugby')) return SportsRugby;
+  if (sportLower.includes('hockey')) return SportsHockey;
+  if (sportLower.includes('baseball') || sportLower.includes('béisbol')) return SportsBaseball;
+  if (sportLower.includes('lacrosse')) return SportsGeneric; // No specific icon for lacrosse
+
+  return SportsGeneric;
+};
+
+// Export for use in other components
+export { getSportIcon };
 
 const DIFFICULTY_COLORS: Record<DrillDifficulty, string> = {
   basic: '#4CAF50',
@@ -40,6 +71,9 @@ const DIFFICULTY_COLORS: Record<DrillDifficulty, string> = {
 
 export const DrillbookView: React.FC = () => {
   const { t } = useI18n();
+  const { organization } = useOrganization();
+  const sportName = (organization as any)?.sport?.name;
+  const SportIcon = getSportIcon(sportName);
   const [drills, setDrills] = useState<Drill[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [categories, setCategories] = useState<ManagedCategory[]>([]);
@@ -93,7 +127,7 @@ export const DrillbookView: React.FC = () => {
     <Box>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <SportsIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+        <SportIcon sx={{ fontSize: 40, color: 'primary.main' }} />
         <Typography variant="h4" component="h1">
           {t('drillbook.title')}
         </Typography>
@@ -162,7 +196,7 @@ export const DrillbookView: React.FC = () => {
                     justifyContent: 'center',
                   }}
                 >
-                  <SportsIcon sx={{ fontSize: 80, color: 'white', opacity: 0.8 }} />
+                  <SportIcon sx={{ fontSize: 80, color: 'white', opacity: 0.8 }} />
                 </Box>
               )}
 

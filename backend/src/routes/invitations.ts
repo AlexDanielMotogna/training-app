@@ -303,6 +303,21 @@ router.post('/signup', async (req, res) => {
 
     console.log(`[INVITATIONS] New user ${user.id} signed up via invitation to org ${invitation.organizationId}`);
 
+    // Get organization details to include in response
+    const organization = await prisma.organization.findUnique({
+      where: { id: invitation.organizationId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        sportId: true,
+        plan: true,
+        primaryColor: true,
+        secondaryColor: true,
+        logoUrl: true,
+      },
+    });
+
     // Broadcast invitation accepted event via SSE
     sseManager.broadcastToOrganization(invitation.organizationId, 'invitation:accepted', {
       invitationId: invitation.id,
@@ -329,6 +344,10 @@ router.post('/signup', async (req, res) => {
         weightKg: user.weightKg,
         heightCm: user.heightCm,
       },
+      organization: organization ? {
+        ...organization,
+        role: invitation.role,
+      } : null,
     });
   } catch (error) {
     console.error('[INVITATIONS] Signup error:', error);

@@ -359,10 +359,11 @@ function App() {
             )}
               </Routes>
 
-              <HardNotification
+              {/* DISABLED: Mock hard notification */}
+              {/* <HardNotification
                 notification={hardNotification}
                 onAcknowledge={handleAcknowledgeNotification}
-              />
+              /> */}
 
               {/* Attendance Poll Modal - Mandatory until voted */}
               {showPollModal && activePoll && (

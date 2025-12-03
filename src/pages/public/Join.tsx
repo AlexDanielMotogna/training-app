@@ -235,10 +235,15 @@ const Join: React.FC = () => {
 
       const data = await response.json();
 
-      // Save auth token and user data
+      // Save auth token, user data, and organization
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('userRole', data.user.role);
       localStorage.setItem('currentUser', JSON.stringify(data.user));
+
+      // Save organization for theming and branding
+      if (data.organization) {
+        localStorage.setItem('teamtrainer_organization', JSON.stringify(data.organization));
+      }
 
       toastService.success('Account created! Welcome to the organization.');
 

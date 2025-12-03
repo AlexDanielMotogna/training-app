@@ -85,7 +85,12 @@ export const Signup: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [sports, setSports] = useState<Sport[]>([]);
-  const [ageCategories, setAgeCategories] = useState<{ id: string; name: string; code: string }[]>([]);
+  const [ageCategories, setAgeCategories] = useState<{
+    id: string;
+    name: string;
+    code: string;
+    nameTranslations?: { en?: string; es?: string; de?: string };
+  }[]>([]);
   const [loadingSports, setLoadingSports] = useState(true);
 
   const selectedPlan = searchParams.get('plan') || 'free';
@@ -694,11 +699,14 @@ export const Signup: React.FC = () => {
                     label={t('signup.ageCategory')}
                     onChange={(e) => setFormData({ ...formData, ageCategoryId: e.target.value as string })}
                   >
-                    {ageCategories.map((cat) => (
-                      <MenuItem key={cat.id} value={cat.id}>
-                        {cat.name} ({cat.code})
-                      </MenuItem>
-                    ))}
+                    {ageCategories.map((cat) => {
+                      const displayName = cat.nameTranslations?.[locale as 'en' | 'de'] || cat.name;
+                      return (
+                        <MenuItem key={cat.id} value={cat.id}>
+                          {displayName} ({cat.code})
+                        </MenuItem>
+                      );
+                    })}
                   </Select>
                 </FormControl>
               </Grid>

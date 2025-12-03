@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -39,13 +40,17 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import BusinessIcon from '@mui/icons-material/Business';
 import PaletteIcon from '@mui/icons-material/Palette';
 import ImageIcon from '@mui/icons-material/Image';
-import SettingsIcon from '@mui/icons-material/Settings';
 import InfoIcon from '@mui/icons-material/Info';
 import SportsIcon from '@mui/icons-material/Sports';
 import PeopleIcon from '@mui/icons-material/People';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SendIcon from '@mui/icons-material/Send';
+import GroupsIcon from '@mui/icons-material/Groups';
+import EditIcon from '@mui/icons-material/Edit';
+import AddIcon from '@mui/icons-material/Add';
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
+import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import { useOrganization, useOrgPermission } from '../contexts/OrganizationContext';
 import { useI18n } from '../i18n/I18nProvider';
 import { toastService } from '../services/toast';
@@ -62,6 +67,17 @@ import {
   type Invitation,
 } from '../services/members';
 import { useOrganizationSSE } from '../hooks/useOrganizationSSE';
+import {
+  getTeams,
+  createTeam,
+  updateTeam,
+  deleteTeam,
+  getTeamMembers,
+  addTeamMember,
+  removeTeamMember,
+  type Team,
+  type TeamMember,
+} from '../services/teams';
 
 const DEFAULT_LOGO = '/teamtraining-logo.svg';
 
@@ -86,10 +102,25 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+// Tab name mapping
+const TAB_NAMES = ['general', 'branding', 'logo', 'members', 'teams'] as const;
+type TabName = typeof TAB_NAMES[number];
+
+const getTabIndex = (tabName: string | null): number => {
+  if (!tabName) return 0;
+  const index = TAB_NAMES.indexOf(tabName as TabName);
+  return index >= 0 ? index : 0;
+};
+
+const getTabName = (index: number): TabName => {
+  return TAB_NAMES[index] || 'general';
+};
+
 export const OrganizationSettings: React.FC = () => {
-  const { t } = useI18n();
-  const { organization, refreshOrganization, hasOrganization } = useOrganization();
+  const { t, locale } = useI18n();
+  const { organization, refreshOrganization, hasOrganization, isLoading: isLoadingOrg } = useOrganization();
   const canManageSettings = useOrgPermission('canManageSettings');
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Debug: Log organization data
   useEffect(() => {
@@ -97,9 +128,21 @@ export const OrganizationSettings: React.FC = () => {
     console.log('[OrganizationSettings] Sport data:', (organization as any)?.sport);
   }, [organization]);
 
-  const [activeTab, setActiveTab] = useState(0);
+  // Initialize activeTab from URL query param
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = searchParams.get('tab');
+    return getTabIndex(tabParam);
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Sync activeTab with URL changes (browser back/forward buttons)
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    const newTabIndex = getTabIndex(tabParam);
+    setActiveTab(newTabIndex);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Form state
   const [orgName, setOrgName] = useState('');
@@ -118,8 +161,34 @@ export const OrganizationSettings: React.FC = () => {
   const [inviteRole, setInviteRole] = useState<'admin' | 'coach' | 'player'>('player');
   const [isSendingInvite, setIsSendingInvite] = useState(false);
 
+  // Teams state
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [isLoadingTeams, setIsLoadingTeams] = useState(false);
+  const [teamModalOpen, setTeamModalOpen] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [teamName, setTeamName] = useState('');
+  const [teamAgeCategoryId, setTeamAgeCategoryId] = useState('');
+  const [teamIsActive, setTeamIsActive] = useState(true);
+  const [isSavingTeam, setIsSavingTeam] = useState(false);
+
+  // Team members state
+  const [teamMembersModalOpen, setTeamMembersModalOpen] = useState(false);
+  const [selectedTeamForMembers, setSelectedTeamForMembers] = useState<Team | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false);
+  const [selectedMemberToAdd, setSelectedMemberToAdd] = useState<string>('');
+  const [memberRole, setMemberRole] = useState<'head_coach' | 'assistant_coach' | 'player'>('player');
+  const [isAddingMember, setIsAddingMember] = useState(false);
+
   // File input refs
   const logoInputRef = useRef<HTMLInputElement>(null);
+
+  // Refresh organization data on mount to get full data including sport
+  useEffect(() => {
+    if (hasOrganization) {
+      refreshOrganization();
+    }
+  }, [hasOrganization]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load organization data
   useEffect(() => {
@@ -140,6 +209,9 @@ export const OrganizationSettings: React.FC = () => {
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
+    // Update URL query param to persist tab selection
+    const tabName = getTabName(newValue);
+    setSearchParams({ tab: tabName });
   };
 
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -238,13 +310,13 @@ export const OrganizationSettings: React.FC = () => {
 
   // Load members and invitations when Members tab is active
   useEffect(() => {
-    if (activeTab === 3 && organization) {
+    if (activeTab === 3 && organization?.id) {
       loadMembersAndInvitations();
     }
-  }, [activeTab, organization]);
+  }, [activeTab, organization?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadMembersAndInvitations = useCallback(async () => {
-    if (!organization) return;
+    if (!organization || isLoadingMembers) return;
 
     setIsLoadingMembers(true);
     try {
@@ -275,6 +347,204 @@ export const OrganizationSettings: React.FC = () => {
 
   // SSE for real-time updates when invitations are accepted
   useOrganizationSSE(organization?.id, handleSSEEvent);
+
+  // Load teams when Teams tab is active
+  useEffect(() => {
+    if (activeTab === 4 && organization?.id) {
+      loadTeams();
+    }
+  }, [activeTab, organization?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadTeams = useCallback(async () => {
+    if (!organization || isLoadingTeams) return;
+
+    setIsLoadingTeams(true);
+    try {
+      const teamsData = await getTeams(organization.id);
+      setTeams(teamsData);
+    } catch (error) {
+      console.error('Failed to load teams:', error);
+      toastService.error(t('orgSettings.teams.errors.loadFailed'));
+    } finally {
+      setIsLoadingTeams(false);
+    }
+  }, [organization, t]);
+
+  const handleOpenTeamModal = (team?: Team) => {
+    if (team) {
+      // Edit mode
+      setEditingTeam(team);
+      setTeamName(team.name);
+      setTeamAgeCategoryId(team.ageCategoryId);
+      setTeamIsActive(team.isActive);
+    } else {
+      // Create mode
+      setEditingTeam(null);
+      setTeamName('');
+      setTeamAgeCategoryId('');
+      setTeamIsActive(true);
+    }
+    setTeamModalOpen(true);
+  };
+
+  const handleCloseTeamModal = () => {
+    setTeamModalOpen(false);
+    setEditingTeam(null);
+    setTeamName('');
+    setTeamAgeCategoryId('');
+    setTeamIsActive(true);
+  };
+
+  const handleSaveTeam = async () => {
+    if (!organization || !teamName || !teamAgeCategoryId) {
+      toastService.error(t('orgSettings.teams.errors.fieldsRequired'));
+      return;
+    }
+
+    setIsSavingTeam(true);
+    try {
+      if (editingTeam) {
+        // Update existing team
+        await updateTeam(organization.id, editingTeam.id, {
+          name: teamName,
+          ageCategoryId: teamAgeCategoryId,
+          isActive: teamIsActive,
+        });
+        toastService.success(t('orgSettings.teams.updated'));
+      } else {
+        // Create new team
+        await createTeam(organization.id, {
+          name: teamName,
+          ageCategoryId: teamAgeCategoryId,
+          isActive: teamIsActive,
+        });
+        toastService.success(t('orgSettings.teams.created'));
+      }
+
+      handleCloseTeamModal();
+      await loadTeams();
+    } catch (error: any) {
+      console.error('Failed to save team:', error);
+      if (error.message.includes('limit')) {
+        toastService.error(t('orgSettings.teams.errors.limitReached'));
+      } else {
+        toastService.error(t('orgSettings.teams.errors.saveFailed'));
+      }
+    } finally {
+      setIsSavingTeam(false);
+    }
+  };
+
+  const handleDeleteTeam = async (team: Team) => {
+    if (!organization) return;
+
+    if (!window.confirm(t('orgSettings.teams.confirmDelete', { name: team.name }))) {
+      return;
+    }
+
+    try {
+      await deleteTeam(organization.id, team.id);
+      toastService.success(t('orgSettings.teams.deleted'));
+      await loadTeams();
+    } catch (error: any) {
+      console.error('Failed to delete team:', error);
+      if (error.message.includes('members')) {
+        toastService.error(t('orgSettings.teams.errors.hasMembers'));
+      } else {
+        toastService.error(t('orgSettings.teams.errors.deleteFailed'));
+      }
+    }
+  };
+
+  const getAgeCategoryDisplayName = (category: any): string => {
+    return category?.nameTranslations?.[locale as 'en' | 'de'] || category?.name || '';
+  };
+
+  // Team Members handlers
+  const handleOpenTeamMembersModal = async (team: Team) => {
+    setSelectedTeamForMembers(team);
+    setTeamMembersModalOpen(true);
+    setSelectedMemberToAdd('');
+    setMemberRole('player');
+    await loadTeamMembers(team.id);
+  };
+
+  const handleCloseTeamMembersModal = () => {
+    setTeamMembersModalOpen(false);
+    setSelectedTeamForMembers(null);
+    setTeamMembers([]);
+    setSelectedMemberToAdd('');
+    setMemberRole('player');
+  };
+
+  const loadTeamMembers = async (teamId: string) => {
+    if (!organization) return;
+
+    setIsLoadingTeamMembers(true);
+    try {
+      const membersData = await getTeamMembers(organization.id, teamId);
+      setTeamMembers(membersData);
+    } catch (error) {
+      console.error('Failed to load team members:', error);
+      toastService.error(t('orgSettings.teamMembers.errors.loadFailed'));
+    } finally {
+      setIsLoadingTeamMembers(false);
+    }
+  };
+
+  const handleAddTeamMember = async () => {
+    if (!organization || !selectedTeamForMembers || !selectedMemberToAdd) return;
+
+    setIsAddingMember(true);
+    try {
+      await addTeamMember(organization.id, selectedTeamForMembers.id, {
+        userId: selectedMemberToAdd,
+        role: memberRole,
+      });
+
+      toastService.success(t('orgSettings.teamMembers.memberAdded'));
+      setSelectedMemberToAdd('');
+      setMemberRole('player');
+      await loadTeamMembers(selectedTeamForMembers.id);
+      await loadTeams(); // Refresh teams to update member count
+    } catch (error: any) {
+      console.error('Failed to add team member:', error);
+      if (error.message.includes('already a member')) {
+        toastService.error(t('orgSettings.teamMembers.errors.alreadyMember'));
+      } else {
+        toastService.error(t('orgSettings.teamMembers.errors.addFailed'));
+      }
+    } finally {
+      setIsAddingMember(false);
+    }
+  };
+
+  const handleRemoveTeamMember = async (userId: string) => {
+    if (!organization || !selectedTeamForMembers) return;
+
+    if (!window.confirm(t('orgSettings.teamMembers.confirmRemove'))) {
+      return;
+    }
+
+    try {
+      await removeTeamMember(organization.id, selectedTeamForMembers.id, userId);
+      toastService.success(t('orgSettings.teamMembers.memberRemoved'));
+      await loadTeamMembers(selectedTeamForMembers.id);
+      await loadTeams(); // Refresh teams to update member count
+    } catch (error) {
+      console.error('Failed to remove team member:', error);
+      toastService.error(t('orgSettings.teamMembers.errors.removeFailed'));
+    }
+  };
+
+  // Get available org members that are not already in the team
+  const availableMembersToAdd = members.filter(
+    (member) => !teamMembers.some((tm) => tm.userId === member.user.id)
+  );
+
+  const formatTeamMemberRole = (role: string) => {
+    return t(`orgSettings.teamMembers.roles.${role}`);
+  };
 
   const handleSendInvite = async () => {
     if (!organization || !inviteEmail || !inviteRole) {
@@ -316,9 +586,17 @@ export const OrganizationSettings: React.FC = () => {
     try {
       await resendInvitation(organization.id, invitationId);
       toastService.success(t('orgSettings.invitations.resent'));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to resend invitation:', error);
-      toastService.error('Failed to resend invitation');
+
+      // If invitation not found, it was likely already accepted - refresh the list
+      if (error.message?.includes('Invitation not found')) {
+        toastService.error('This invitation has already been accepted or expired');
+        // Refresh the lists to remove stale data
+        loadMembersAndInvitations();
+      } else {
+        toastService.error('Failed to resend invitation');
+      }
     }
   };
 
@@ -329,9 +607,16 @@ export const OrganizationSettings: React.FC = () => {
       await cancelInvitation(organization.id, invitationId);
       toastService.success(t('orgSettings.invitations.cancelled'));
       await loadMembersAndInvitations();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to cancel invitation:', error);
-      toastService.error('Failed to cancel invitation');
+
+      // If invitation not found, it was likely already accepted - refresh the list
+      if (error.message?.includes('Invitation not found')) {
+        toastService.error('This invitation has already been accepted or deleted');
+        loadMembersAndInvitations();
+      } else {
+        toastService.error('Failed to cancel invitation');
+      }
     }
   };
 
@@ -440,6 +725,14 @@ export const OrganizationSettings: React.FC = () => {
                   size="small"
                   variant="outlined"
                 />
+                {organization?.sport?.name && (
+                  <Chip
+                    label={organization.sport.name}
+                    size="small"
+                    color="secondary"
+                    variant="outlined"
+                  />
+                )}
               </Box>
             </Box>
           </Box>
@@ -472,6 +765,11 @@ export const OrganizationSettings: React.FC = () => {
             icon={<PeopleIcon />}
             iconPosition="start"
             label={t('orgSettings.tabs.members')}
+          />
+          <Tab
+            icon={<GroupsIcon />}
+            iconPosition="start"
+            label={t('orgSettings.tabs.teams')}
           />
         </Tabs>
 
@@ -533,19 +831,27 @@ export const OrganizationSettings: React.FC = () => {
                   Age Categories
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Available age categories for {(organization as any)?.sport?.name}
+                  Available age categories for {(organization as any)?.sport?.name || 'your sport'}
                 </Typography>
-                {(organization as any)?.sport?.ageCategories && (organization as any).sport.ageCategories.length > 0 ? (
+                {isLoadingOrg ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CircularProgress size={20} />
+                    <Typography variant="body2" color="text.secondary">Loading...</Typography>
+                  </Box>
+                ) : (organization as any)?.sport?.ageCategories && (organization as any).sport.ageCategories.length > 0 ? (
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {(organization as any).sport.ageCategories.map((category: any) => (
-                      <Chip
-                        key={category.id}
-                        label={`${category.name} (${category.code})`}
-                        color="default"
-                        variant="outlined"
-                        size="small"
-                      />
-                    ))}
+                    {(organization as any).sport.ageCategories.map((category: any) => {
+                      const displayName = category.nameTranslations?.[locale as 'en' | 'de'] || category.name;
+                      return (
+                        <Chip
+                          key={category.id}
+                          label={`${displayName} (${category.code})`}
+                          color="default"
+                          variant="outlined"
+                          size="small"
+                        />
+                      );
+                    })}
                   </Box>
                 ) : (
                   <Typography variant="body2" color="text.secondary">
@@ -937,6 +1243,130 @@ export const OrganizationSettings: React.FC = () => {
           </Box>
         </TabPanel>
 
+        {/* Teams Tab */}
+        <TabPanel value={activeTab} index={4}>
+          <Box sx={{ px: 3 }}>
+            {isLoadingTeams ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <>
+                {/* Teams Header */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                  <Box>
+                    <Typography variant="h6">{t('orgSettings.teams.title')}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {t('orgSettings.teams.subtitle')}
+                    </Typography>
+                  </Box>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => handleOpenTeamModal()}
+                  >
+                    {t('orgSettings.teams.addButton')}
+                  </Button>
+                </Box>
+
+                {/* Teams Table */}
+                <TableContainer component={Paper} variant="outlined">
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>{t('orgSettings.teams.name')}</TableCell>
+                        <TableCell>{t('orgSettings.teams.ageCategory')}</TableCell>
+                        <TableCell>{t('orgSettings.teams.members')}</TableCell>
+                        <TableCell>{t('orgSettings.teams.status')}</TableCell>
+                        <TableCell align="right">{t('orgSettings.teams.actions')}</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {teams.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                            {t('orgSettings.teams.noTeams')}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        teams.map((team) => (
+                          <TableRow key={team.id}>
+                            <TableCell>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <GroupsIcon color="primary" />
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  {team.name}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={team.ageCategory ? `${getAgeCategoryDisplayName(team.ageCategory)} (${team.ageCategory.code})` : '-'}
+                                size="small"
+                                variant="outlined"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              {team._count?.members || 0}
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={team.isActive ? t('orgSettings.teams.active') : t('orgSettings.teams.inactive')}
+                                size="small"
+                                color={team.isActive ? 'success' : 'default'}
+                              />
+                            </TableCell>
+                            <TableCell align="right">
+                              <Tooltip title={t('orgSettings.teamMembers.manageMembers')}>
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() => handleOpenTeamMembersModal(team)}
+                                >
+                                  <ManageAccountsIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title={t('orgSettings.teams.edit')}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleOpenTeamModal(team)}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title={t('orgSettings.teams.delete')}>
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleDeleteTeam(team)}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+
+                {/* Team Limits Info */}
+                <Alert severity="info" sx={{ mt: 3 }}>
+                  <Typography variant="body2">
+                    {t('orgSettings.teams.limitInfo', {
+                      current: teams.length,
+                      limit: organization?.plan === 'enterprise' ? 'unlimited' :
+                             organization?.plan === 'pro' ? '20' :
+                             organization?.plan === 'starter' ? '5' : '2'
+                    })}
+                  </Typography>
+                </Alert>
+              </>
+            )}
+          </Box>
+        </TabPanel>
+
         {/* Action Buttons */}
         <Divider />
         <Box sx={{ p: 3, display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
@@ -1011,6 +1441,241 @@ export const OrganizationSettings: React.FC = () => {
             startIcon={isSendingInvite ? <CircularProgress size={20} /> : <SendIcon />}
           >
             {isSendingInvite ? t('orgSettings.invite.sending') : t('orgSettings.invite.send')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Create/Edit Team Modal */}
+      <Dialog
+        open={teamModalOpen}
+        onClose={handleCloseTeamModal}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {editingTeam ? t('orgSettings.teams.editTitle') : t('orgSettings.teams.createTitle')}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              fullWidth
+              label={t('orgSettings.teams.teamName')}
+              value={teamName}
+              onChange={(e) => setTeamName(e.target.value)}
+              placeholder={t('orgSettings.teams.teamNamePlaceholder')}
+              disabled={isSavingTeam}
+            />
+
+            <FormControl fullWidth disabled={isSavingTeam}>
+              <InputLabel>{t('orgSettings.teams.ageCategory')}</InputLabel>
+              <Select
+                value={teamAgeCategoryId}
+                label={t('orgSettings.teams.ageCategory')}
+                onChange={(e) => setTeamAgeCategoryId(e.target.value)}
+              >
+                {(organization as any)?.sport?.ageCategories?.map((category: any) => (
+                  <MenuItem key={category.id} value={category.id}>
+                    {getAgeCategoryDisplayName(category)} ({category.code})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth disabled={isSavingTeam}>
+              <InputLabel>{t('orgSettings.teams.status')}</InputLabel>
+              <Select
+                value={teamIsActive ? 'active' : 'inactive'}
+                label={t('orgSettings.teams.status')}
+                onChange={(e) => setTeamIsActive(e.target.value === 'active')}
+              >
+                <MenuItem value="active">{t('orgSettings.teams.active')}</MenuItem>
+                <MenuItem value="inactive">{t('orgSettings.teams.inactive')}</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={handleCloseTeamModal}
+            disabled={isSavingTeam}
+          >
+            {t('common.cancel')}
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveTeam}
+            disabled={isSavingTeam || !teamName || !teamAgeCategoryId}
+            startIcon={isSavingTeam ? <CircularProgress size={20} /> : <SaveIcon />}
+          >
+            {isSavingTeam ? t('common.saving') : t('common.save')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Team Members Modal */}
+      <Dialog
+        open={teamMembersModalOpen}
+        onClose={handleCloseTeamMembersModal}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <ManageAccountsIcon color="primary" />
+            {t('orgSettings.teamMembers.title', { teamName: selectedTeamForMembers?.name || '' })}
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {isLoadingTeamMembers ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <>
+              {/* Add Member Section */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+                  {t('orgSettings.teamMembers.addMember')}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                  <FormControl sx={{ minWidth: 250 }} disabled={isAddingMember}>
+                    <InputLabel>{t('orgSettings.teamMembers.selectMember')}</InputLabel>
+                    <Select
+                      value={selectedMemberToAdd}
+                      label={t('orgSettings.teamMembers.selectMember')}
+                      onChange={(e) => setSelectedMemberToAdd(e.target.value)}
+                    >
+                      {availableMembersToAdd.length === 0 ? (
+                        <MenuItem disabled>
+                          {t('orgSettings.teamMembers.noAvailableMembers')}
+                        </MenuItem>
+                      ) : (
+                        availableMembersToAdd.map((member) => (
+                          <MenuItem key={member.user.id} value={member.user.id}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Avatar
+                                src={member.user.avatarUrl}
+                                sx={{ width: 24, height: 24 }}
+                              >
+                                {member.user.name.charAt(0)}
+                              </Avatar>
+                              {member.user.name}
+                            </Box>
+                          </MenuItem>
+                        ))
+                      )}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl sx={{ minWidth: 150 }} disabled={isAddingMember}>
+                    <InputLabel>{t('orgSettings.teamMembers.role')}</InputLabel>
+                    <Select
+                      value={memberRole}
+                      label={t('orgSettings.teamMembers.role')}
+                      onChange={(e) => setMemberRole(e.target.value as any)}
+                    >
+                      <MenuItem value="player">{formatTeamMemberRole('player')}</MenuItem>
+                      <MenuItem value="assistant_coach">{formatTeamMemberRole('assistant_coach')}</MenuItem>
+                      <MenuItem value="head_coach">{formatTeamMemberRole('head_coach')}</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <Button
+                    variant="contained"
+                    onClick={handleAddTeamMember}
+                    disabled={isAddingMember || !selectedMemberToAdd}
+                    startIcon={isAddingMember ? <CircularProgress size={20} /> : <PersonAddIcon />}
+                  >
+                    {t('orgSettings.teamMembers.add')}
+                  </Button>
+                </Box>
+
+                {availableMembersToAdd.length === 0 && members.length > 0 && (
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    {t('orgSettings.teamMembers.allMembersAssigned')}
+                  </Alert>
+                )}
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              {/* Current Members Section */}
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+                  {t('orgSettings.teamMembers.currentMembers')} ({teamMembers.length})
+                </Typography>
+
+                {teamMembers.length === 0 ? (
+                  <Alert severity="info">
+                    {t('orgSettings.teamMembers.noMembers')}
+                  </Alert>
+                ) : (
+                  <TableContainer component={Paper} variant="outlined">
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>{t('orgSettings.teamMembers.memberName')}</TableCell>
+                          <TableCell>{t('orgSettings.teamMembers.email')}</TableCell>
+                          <TableCell>{t('orgSettings.teamMembers.role')}</TableCell>
+                          <TableCell>{t('orgSettings.teamMembers.joinedAt')}</TableCell>
+                          <TableCell align="right">{t('orgSettings.teamMembers.actions')}</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {teamMembers.map((member) => (
+                          <TableRow key={member.id}>
+                            <TableCell>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Avatar
+                                  src={member.user.avatarUrl}
+                                  sx={{ width: 32, height: 32 }}
+                                >
+                                  {member.user.name.charAt(0)}
+                                </Avatar>
+                                <Typography variant="body2">
+                                  {member.user.name}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>{member.user.email}</TableCell>
+                            <TableCell>
+                              <Chip
+                                label={formatTeamMemberRole(member.role)}
+                                size="small"
+                                color={
+                                  member.role === 'head_coach' ? 'primary' :
+                                  member.role === 'assistant_coach' ? 'secondary' :
+                                  'default'
+                                }
+                              />
+                            </TableCell>
+                            <TableCell>
+                              {new Date(member.joinedAt).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell align="right">
+                              <Tooltip title={t('orgSettings.teamMembers.remove')}>
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleRemoveTeamMember(member.userId)}
+                                >
+                                  <PersonRemoveIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </Box>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseTeamMembersModal}>
+            {t('common.close')}
           </Button>
         </DialogActions>
       </Dialog>
