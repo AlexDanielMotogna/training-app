@@ -744,7 +744,7 @@ export const Landing: React.FC = () => {
                 transform: 'translateY(-50%)',
                 display: { xs: 'none', lg: 'flex' },
                 flexDirection: 'column',
-                gap: 3,
+                gap: 1,
                 zIndex: 0,
               }}
             >
@@ -794,7 +794,7 @@ export const Landing: React.FC = () => {
                 transform: 'translateY(-50%)',
                 display: { xs: 'none', lg: 'flex' },
                 flexDirection: 'column',
-                gap: 3,
+                gap: 1,
                 zIndex: 0,
               }}
             >
