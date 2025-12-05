@@ -107,6 +107,19 @@ const SPORTS = [
   { icon: SportsCricketIcon, name: 'Lacrosse', color: '#9932CC' },
 ];
 
+// Athlete images for each sport (from Unsplash)
+const ATHLETE_IMAGES = [
+  'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=400&h=600&fit=crop', // American Football
+  'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=400&h=600&fit=crop', // Basketball
+  'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=400&h=600&fit=crop', // Soccer
+  'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=400&h=600&fit=crop', // Volleyball
+  'https://images.unsplash.com/photo-1551958219-acbc608c6377?w=400&h=600&fit=crop', // Handball
+  'https://images.unsplash.com/photo-1513028179155-324cfec2dc78?w=400&h=600&fit=crop', // Rugby
+  'https://images.unsplash.com/photo-1515703407324-5f753afd8be8?w=400&h=600&fit=crop', // Ice Hockey
+  'https://images.unsplash.com/photo-1529013994172-7e3f7eaf7de7?w=400&h=600&fit=crop', // Baseball
+  'https://images.unsplash.com/photo-1531415074968-7b2a7f6a6f1f?w=400&h=600&fit=crop', // Lacrosse
+];
+
 const STATS = [
   { value: '10,000+', label: 'Athletes Trained' },
   { value: '500+', label: 'Teams Worldwide' },
@@ -178,6 +191,7 @@ export const Landing: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [heroImageIndex, setHeroImageIndex] = useState(0);
+  const [hoveredSportIndex, setHoveredSportIndex] = useState<number | null>(null);
 
   // Rotate hero images
   useEffect(() => {
@@ -678,8 +692,8 @@ export const Landing: React.FC = () => {
             ))}
           </Grid>
 
-          {/* Sports Section */}
-          <Box>
+          {/* Sports Section with Athlete Images */}
+          <Box sx={{ position: 'relative' }}>
             <Typography
               variant="overline"
               sx={{
@@ -717,6 +731,109 @@ export const Landing: React.FC = () => {
               Each sport comes pre-configured with positions, age categories, and sport-specific metrics.
             </Typography>
 
+            {/* Athletes Left Side (5 images) */}
+            <Box
+              sx={{
+                position: 'absolute',
+                left: { xs: -60, sm: -80, md: -120, lg: -180 },
+                top: '50%',
+                transform: 'translateY(-50%)',
+                display: { xs: 'none', lg: 'flex' },
+                flexDirection: 'column',
+                gap: 3,
+                zIndex: 0,
+              }}
+            >
+              {ATHLETE_IMAGES.slice(0, 5).map((img, index) => (
+                <Box
+                  key={`left-${index}`}
+                  sx={{
+                    width: 120,
+                    height: 160,
+                    borderRadius: 3,
+                    overflow: 'hidden',
+                    border: '2px solid',
+                    borderColor: hoveredSportIndex === index ? SPORTS[index].color : 'rgba(255,255,255,0.1)',
+                    opacity: hoveredSportIndex === null ? 0.4 : hoveredSportIndex === index ? 1 : 0.2,
+                    transform: hoveredSportIndex === index ? 'scale(1.15) translateX(10px)' : 'scale(1)',
+                    transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                    filter: hoveredSportIndex === index
+                      ? `drop-shadow(0 8px 24px ${SPORTS[index].color}60) brightness(1.2)`
+                      : 'brightness(0.8)',
+                    '&:hover': {
+                      transform: 'scale(1.15) translateX(10px)',
+                      opacity: 1,
+                      filter: `drop-shadow(0 8px 24px ${SPORTS[index].color}60) brightness(1.2)`,
+                    },
+                  }}
+                >
+                  <Box
+                    component="img"
+                    src={img}
+                    alt={SPORTS[index].name}
+                    sx={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                    }}
+                  />
+                </Box>
+              ))}
+            </Box>
+
+            {/* Athletes Right Side (4 images) */}
+            <Box
+              sx={{
+                position: 'absolute',
+                right: { xs: -60, sm: -80, md: -120, lg: -180 },
+                top: '50%',
+                transform: 'translateY(-50%)',
+                display: { xs: 'none', lg: 'flex' },
+                flexDirection: 'column',
+                gap: 3,
+                zIndex: 0,
+              }}
+            >
+              {ATHLETE_IMAGES.slice(5, 9).map((img, index) => {
+                const sportIndex = index + 5;
+                return (
+                  <Box
+                    key={`right-${index}`}
+                    sx={{
+                      width: 120,
+                      height: 160,
+                      borderRadius: 3,
+                      overflow: 'hidden',
+                      border: '2px solid',
+                      borderColor: hoveredSportIndex === sportIndex ? SPORTS[sportIndex].color : 'rgba(255,255,255,0.1)',
+                      opacity: hoveredSportIndex === null ? 0.4 : hoveredSportIndex === sportIndex ? 1 : 0.2,
+                      transform: hoveredSportIndex === sportIndex ? 'scale(1.15) translateX(-10px)' : 'scale(1)',
+                      transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                      filter: hoveredSportIndex === sportIndex
+                        ? `drop-shadow(0 8px 24px ${SPORTS[sportIndex].color}60) brightness(1.2)`
+                        : 'brightness(0.8)',
+                      '&:hover': {
+                        transform: 'scale(1.15) translateX(-10px)',
+                        opacity: 1,
+                        filter: `drop-shadow(0 8px 24px ${SPORTS[sportIndex].color}60) brightness(1.2)`,
+                      },
+                    }}
+                  >
+                    <Box
+                      component="img"
+                      src={img}
+                      alt={SPORTS[sportIndex].name}
+                      sx={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  </Box>
+                );
+              })}
+            </Box>
+
             {/* Sports Icons in Single Row */}
             <Box
               sx={{
@@ -727,11 +844,15 @@ export const Landing: React.FC = () => {
                 flexWrap: 'wrap',
                 maxWidth: 1100,
                 mx: 'auto',
+                position: 'relative',
+                zIndex: 1,
               }}
             >
-              {SPORTS.map((sport) => (
+              {SPORTS.map((sport, index) => (
                 <Box
                   key={sport.name}
+                  onMouseEnter={() => setHoveredSportIndex(index)}
+                  onMouseLeave={() => setHoveredSportIndex(null)}
                   sx={{
                     display: 'flex',
                     flexDirection: 'column',
