@@ -107,17 +107,17 @@ const SPORTS = [
   { icon: SportsCricketIcon, name: 'Lacrosse', color: '#9932CC' },
 ];
 
-// Athlete images for each sport (from Unsplash)
+// Team/group images for each sport - multiple athletes together (from Unsplash)
 const ATHLETE_IMAGES = [
-  'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=400&h=600&fit=crop', // American Football
-  'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=400&h=600&fit=crop', // Basketball
-  'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=400&h=600&fit=crop', // Soccer
-  'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=400&h=600&fit=crop', // Volleyball
-  'https://images.unsplash.com/photo-1551958219-acbc608c6377?w=400&h=600&fit=crop', // Handball
-  'https://images.unsplash.com/photo-1513028179155-324cfec2dc78?w=400&h=600&fit=crop', // Rugby
-  'https://images.unsplash.com/photo-1515703407324-5f753afd8be8?w=400&h=600&fit=crop', // Ice Hockey
-  'https://images.unsplash.com/photo-1529013994172-7e3f7eaf7de7?w=400&h=600&fit=crop', // Baseball
-  'https://images.unsplash.com/photo-1531415074968-7b2a7f6a6f1f?w=400&h=600&fit=crop', // Lacrosse
+  'https://images.unsplash.com/photo-1504450758481-7338eba7524a?w=400&h=600&fit=crop', // American Football team
+  'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=400&h=600&fit=crop', // Basketball team huddle
+  'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400&h=600&fit=crop', // Soccer team celebration
+  'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=400&h=600&fit=crop', // Volleyball team
+  'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=400&h=600&fit=crop', // Handball team
+  'https://images.unsplash.com/photo-1486286701208-1d58e9338013?w=400&h=600&fit=crop', // Rugby team
+  'https://images.unsplash.com/photo-1515703407324-5f753afd8be8?w=400&h=600&fit=crop', // Ice Hockey team
+  'https://images.unsplash.com/photo-1563299796-17596ed6b017?w=400&h=600&fit=crop', // Baseball team
+  'https://images.unsplash.com/photo-1531415074968-7b2a7f6a6f1f?w=400&h=600&fit=crop', // Lacrosse team
 ];
 
 const STATS = [
