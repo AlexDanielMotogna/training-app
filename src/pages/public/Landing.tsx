@@ -107,17 +107,21 @@ const SPORTS = [
   { icon: SportsCricketIcon, name: 'Lacrosse', color: '#9932CC' },
 ];
 
-// Team/group images for each sport - multiple athletes together (from Unsplash)
-const ATHLETE_IMAGES = [
-  'https://images.unsplash.com/photo-1504450758481-7338eba7524a?w=400&h=600&fit=crop', // American Football team
-  'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=400&h=600&fit=crop', // Basketball team huddle
-  'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400&h=600&fit=crop', // Soccer team celebration
-  'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=400&h=600&fit=crop', // Volleyball team
-  'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=400&h=600&fit=crop', // Handball team
-  'https://images.unsplash.com/photo-1486286701208-1d58e9338013?w=400&h=600&fit=crop', // Rugby team
-  'https://images.unsplash.com/photo-1515703407324-5f753afd8be8?w=400&h=600&fit=crop', // Ice Hockey team
-  'https://images.unsplash.com/photo-1563299796-17596ed6b017?w=400&h=600&fit=crop', // Baseball team
-  'https://images.unsplash.com/photo-1531415074968-7b2a7f6a6f1f?w=400&h=600&fit=crop', // Lacrosse team
+// Athletes in action - LEFT side (facing RIGHT →)
+const ATHLETE_IMAGES_LEFT = [
+  'https://images.unsplash.com/photo-1504450758481-7338eba7524a?w=400&h=600&fit=crop', // American Football players running right
+  'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=400&h=600&fit=crop', // Basketball players moving right
+  'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=400&h=600&fit=crop', // Soccer players running right
+  'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=400&h=600&fit=crop', // Volleyball players jumping right
+  'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=400&h=600&fit=crop', // Handball players moving right
+];
+
+// Athletes in action - RIGHT side (facing LEFT ←)
+const ATHLETE_IMAGES_RIGHT = [
+  'https://images.unsplash.com/photo-1486286701208-1d58e9338013?w=400&h=600&fit=crop', // Rugby players moving left
+  'https://images.unsplash.com/photo-1515703407324-5f753afd8be8?w=400&h=600&fit=crop', // Ice Hockey players moving left
+  'https://images.unsplash.com/photo-1563299796-17596ed6b017?w=400&h=600&fit=crop', // Baseball players moving left
+  'https://images.unsplash.com/photo-1531415074968-7b2a7f6a6f1f?w=400&h=600&fit=crop', // Lacrosse players moving left
 ];
 
 const STATS = [
@@ -731,7 +735,7 @@ export const Landing: React.FC = () => {
               Each sport comes pre-configured with positions, age categories, and sport-specific metrics.
             </Typography>
 
-            {/* Athletes Left Side (5 images) */}
+            {/* Athletes Left Side (5 images - facing RIGHT →) */}
             <Box
               sx={{
                 position: 'absolute',
@@ -744,7 +748,7 @@ export const Landing: React.FC = () => {
                 zIndex: 0,
               }}
             >
-              {ATHLETE_IMAGES.slice(0, 5).map((img, index) => (
+              {ATHLETE_IMAGES_LEFT.map((img, index) => (
                 <Box
                   key={`left-${index}`}
                   sx={{
@@ -781,7 +785,7 @@ export const Landing: React.FC = () => {
               ))}
             </Box>
 
-            {/* Athletes Right Side (4 images) */}
+            {/* Athletes Right Side (4 images - facing LEFT ←) */}
             <Box
               sx={{
                 position: 'absolute',
@@ -794,7 +798,7 @@ export const Landing: React.FC = () => {
                 zIndex: 0,
               }}
             >
-              {ATHLETE_IMAGES.slice(5, 9).map((img, index) => {
+              {ATHLETE_IMAGES_RIGHT.map((img, index) => {
                 const sportIndex = index + 5;
                 return (
                   <Box
