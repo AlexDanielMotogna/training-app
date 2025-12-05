@@ -158,7 +158,8 @@ export interface TeamMember {
     id: string;
     name: string;
     abbreviation: string;
-  };
+    group?: string;
+  } | null;
 }
 
 export interface AddTeamMemberData {

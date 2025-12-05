@@ -178,6 +178,8 @@ export const OrganizationSettings: React.FC = () => {
   const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false);
   const [selectedMemberToAdd, setSelectedMemberToAdd] = useState<string>('');
   const [memberRole, setMemberRole] = useState<'head_coach' | 'assistant_coach' | 'player'>('player');
+  const [memberPositionId, setMemberPositionId] = useState<string>('');
+  const [memberJerseyNumber, setMemberJerseyNumber] = useState<string>('');
   const [isAddingMember, setIsAddingMember] = useState(false);
 
   // File input refs
@@ -308,33 +310,45 @@ export const OrganizationSettings: React.FC = () => {
     }
   };
 
-  // Load members and invitations when Members tab is active
+  // Store organization ID in a ref to avoid stale closures
+  const organizationIdRef = useRef<string | undefined>(organization?.id);
   useEffect(() => {
-    if (activeTab === 3 && organization?.id) {
-      loadMembersAndInvitations();
+    organizationIdRef.current = organization?.id;
+  }, [organization?.id]);
+
+  const loadMembersAndInvitations = useCallback(async (showLoading = true) => {
+    const orgId = organizationIdRef.current;
+    if (!orgId) {
+      console.log('[MEMBERS] No organization ID available, skipping load');
+      return;
     }
-  }, [activeTab, organization?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadMembersAndInvitations = useCallback(async () => {
-    if (!organization || isLoadingMembers) return;
-
-    setIsLoadingMembers(true);
+    console.log('[MEMBERS] Loading members for org:', orgId);
+    if (showLoading) setIsLoadingMembers(true);
     try {
       const [membersData, invitationsData] = await Promise.all([
-        getOrganizationMembers(organization.id),
-        getOrganizationInvitations(organization.id),
+        getOrganizationMembers(orgId),
+        getOrganizationInvitations(orgId),
       ]);
-      console.log('[FRONTEND] Loaded members:', membersData.length);
-      console.log('[FRONTEND] Loaded invitations:', invitationsData.length, invitationsData);
+      console.log('[MEMBERS] Loaded members:', membersData.length);
+      console.log('[MEMBERS] Loaded invitations:', invitationsData.length);
       setMembers(membersData);
       setInvitations(invitationsData);
     } catch (error) {
-      console.error('Failed to load members:', error);
+      console.error('[MEMBERS] Failed to load members:', error);
       toastService.error('Failed to load members');
     } finally {
-      setIsLoadingMembers(false);
+      if (showLoading) setIsLoadingMembers(false);
     }
-  }, [organization]);
+  }, []); // No dependencies - uses ref for organization ID
+
+  // Load members and invitations when Members tab is active
+  useEffect(() => {
+    if (activeTab === 3 && organization?.id) {
+      console.log('[MEMBERS] Tab active, triggering load for org:', organization.id);
+      loadMembersAndInvitations();
+    }
+  }, [activeTab, organization?.id, loadMembersAndInvitations]);
 
   // Callback for SSE events
   const handleSSEEvent = useCallback((event: any) => {
@@ -348,27 +362,34 @@ export const OrganizationSettings: React.FC = () => {
   // SSE for real-time updates when invitations are accepted
   useOrganizationSSE(organization?.id, handleSSEEvent);
 
+  const loadTeams = useCallback(async (showLoading = true) => {
+    const orgId = organizationIdRef.current;
+    if (!orgId) {
+      console.log('[TEAMS] No organization ID available, skipping load');
+      return;
+    }
+
+    console.log('[TEAMS] Loading teams for org:', orgId);
+    if (showLoading) setIsLoadingTeams(true);
+    try {
+      const teamsData = await getTeams(orgId);
+      console.log('[TEAMS] Loaded teams:', teamsData.map(team => ({ name: team.name, members: team._count?.members })));
+      setTeams(teamsData);
+    } catch (error) {
+      console.error('[TEAMS] Failed to load teams:', error);
+      toastService.error(t('orgSettings.teams.errors.loadFailed'));
+    } finally {
+      if (showLoading) setIsLoadingTeams(false);
+    }
+  }, [t]); // Only t as dependency - uses ref for organization ID
+
   // Load teams when Teams tab is active
   useEffect(() => {
     if (activeTab === 4 && organization?.id) {
+      console.log('[TEAMS] Tab active, triggering load for org:', organization.id);
       loadTeams();
     }
-  }, [activeTab, organization?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const loadTeams = useCallback(async () => {
-    if (!organization || isLoadingTeams) return;
-
-    setIsLoadingTeams(true);
-    try {
-      const teamsData = await getTeams(organization.id);
-      setTeams(teamsData);
-    } catch (error) {
-      console.error('Failed to load teams:', error);
-      toastService.error(t('orgSettings.teams.errors.loadFailed'));
-    } finally {
-      setIsLoadingTeams(false);
-    }
-  }, [organization, t]);
+  }, [activeTab, organization?.id, loadTeams]);
 
   const handleOpenTeamModal = (team?: Team) => {
     if (team) {
@@ -396,7 +417,8 @@ export const OrganizationSettings: React.FC = () => {
   };
 
   const handleSaveTeam = async () => {
-    if (!organization || !teamName || !teamAgeCategoryId) {
+    const orgId = organizationIdRef.current;
+    if (!orgId || !teamName || !teamAgeCategoryId) {
       toastService.error(t('orgSettings.teams.errors.fieldsRequired'));
       return;
     }
@@ -405,7 +427,7 @@ export const OrganizationSettings: React.FC = () => {
     try {
       if (editingTeam) {
         // Update existing team
-        await updateTeam(organization.id, editingTeam.id, {
+        await updateTeam(orgId, editingTeam.id, {
           name: teamName,
           ageCategoryId: teamAgeCategoryId,
           isActive: teamIsActive,
@@ -413,7 +435,7 @@ export const OrganizationSettings: React.FC = () => {
         toastService.success(t('orgSettings.teams.updated'));
       } else {
         // Create new team
-        await createTeam(organization.id, {
+        await createTeam(orgId, {
           name: teamName,
           ageCategoryId: teamAgeCategoryId,
           isActive: teamIsActive,
@@ -424,7 +446,7 @@ export const OrganizationSettings: React.FC = () => {
       handleCloseTeamModal();
       await loadTeams();
     } catch (error: any) {
-      console.error('Failed to save team:', error);
+      console.error('[TEAMS] Failed to save team:', error);
       if (error.message.includes('limit')) {
         toastService.error(t('orgSettings.teams.errors.limitReached'));
       } else {
@@ -436,18 +458,19 @@ export const OrganizationSettings: React.FC = () => {
   };
 
   const handleDeleteTeam = async (team: Team) => {
-    if (!organization) return;
+    const orgId = organizationIdRef.current;
+    if (!orgId) return;
 
     if (!window.confirm(t('orgSettings.teams.confirmDelete', { name: team.name }))) {
       return;
     }
 
     try {
-      await deleteTeam(organization.id, team.id);
+      await deleteTeam(orgId, team.id);
       toastService.success(t('orgSettings.teams.deleted'));
       await loadTeams();
     } catch (error: any) {
-      console.error('Failed to delete team:', error);
+      console.error('[TEAMS] Failed to delete team:', error);
       if (error.message.includes('members')) {
         toastService.error(t('orgSettings.teams.errors.hasMembers'));
       } else {
@@ -466,7 +489,15 @@ export const OrganizationSettings: React.FC = () => {
     setTeamMembersModalOpen(true);
     setSelectedMemberToAdd('');
     setMemberRole('player');
-    await loadTeamMembers(team.id);
+    setMemberPositionId('');
+    setMemberJerseyNumber('');
+
+    // Load organization members (for the "Add Member" dropdown) and team members in parallel
+    console.log('[TEAM_MEMBERS] Opening modal, loading org members and team members');
+    await Promise.all([
+      loadMembersAndInvitations(false), // Load org members without showing loading spinner
+      loadTeamMembers(team.id),
+    ]);
   };
 
   const handleCloseTeamMembersModal = () => {
@@ -475,17 +506,25 @@ export const OrganizationSettings: React.FC = () => {
     setTeamMembers([]);
     setSelectedMemberToAdd('');
     setMemberRole('player');
+    setMemberPositionId('');
+    setMemberJerseyNumber('');
   };
 
   const loadTeamMembers = async (teamId: string) => {
-    if (!organization) return;
+    const orgId = organizationIdRef.current;
+    if (!orgId) {
+      console.log('[TEAM_MEMBERS] No organization ID available, skipping load');
+      return;
+    }
 
+    console.log('[TEAM_MEMBERS] Loading members for team:', teamId);
     setIsLoadingTeamMembers(true);
     try {
-      const membersData = await getTeamMembers(organization.id, teamId);
+      const membersData = await getTeamMembers(orgId, teamId);
+      console.log('[TEAM_MEMBERS] Loaded:', membersData.length, 'members');
       setTeamMembers(membersData);
     } catch (error) {
-      console.error('Failed to load team members:', error);
+      console.error('[TEAM_MEMBERS] Failed to load team members:', error);
       toastService.error(t('orgSettings.teamMembers.errors.loadFailed'));
     } finally {
       setIsLoadingTeamMembers(false);
@@ -493,22 +532,27 @@ export const OrganizationSettings: React.FC = () => {
   };
 
   const handleAddTeamMember = async () => {
-    if (!organization || !selectedTeamForMembers || !selectedMemberToAdd) return;
+    const orgId = organizationIdRef.current;
+    if (!orgId || !selectedTeamForMembers || !selectedMemberToAdd) return;
 
     setIsAddingMember(true);
     try {
-      await addTeamMember(organization.id, selectedTeamForMembers.id, {
+      await addTeamMember(orgId, selectedTeamForMembers.id, {
         userId: selectedMemberToAdd,
         role: memberRole,
+        positionId: memberPositionId || undefined,
+        jerseyNumber: memberJerseyNumber ? parseInt(memberJerseyNumber, 10) : undefined,
       });
 
       toastService.success(t('orgSettings.teamMembers.memberAdded'));
       setSelectedMemberToAdd('');
       setMemberRole('player');
+      setMemberPositionId('');
+      setMemberJerseyNumber('');
       await loadTeamMembers(selectedTeamForMembers.id);
-      await loadTeams(); // Refresh teams to update member count
+      await loadTeams(false); // Refresh teams to update member count (no loading spinner)
     } catch (error: any) {
-      console.error('Failed to add team member:', error);
+      console.error('[TEAM_MEMBERS] Failed to add team member:', error);
       if (error.message.includes('already a member')) {
         toastService.error(t('orgSettings.teamMembers.errors.alreadyMember'));
       } else {
@@ -520,19 +564,20 @@ export const OrganizationSettings: React.FC = () => {
   };
 
   const handleRemoveTeamMember = async (userId: string) => {
-    if (!organization || !selectedTeamForMembers) return;
+    const orgId = organizationIdRef.current;
+    if (!orgId || !selectedTeamForMembers) return;
 
     if (!window.confirm(t('orgSettings.teamMembers.confirmRemove'))) {
       return;
     }
 
     try {
-      await removeTeamMember(organization.id, selectedTeamForMembers.id, userId);
+      await removeTeamMember(orgId, selectedTeamForMembers.id, userId);
       toastService.success(t('orgSettings.teamMembers.memberRemoved'));
       await loadTeamMembers(selectedTeamForMembers.id);
-      await loadTeams(); // Refresh teams to update member count
+      await loadTeams(false); // Refresh teams to update member count (no loading spinner)
     } catch (error) {
-      console.error('Failed to remove team member:', error);
+      console.error('[TEAM_MEMBERS] Failed to remove team member:', error);
       toastService.error(t('orgSettings.teamMembers.errors.removeFailed'));
     }
   };
@@ -547,14 +592,15 @@ export const OrganizationSettings: React.FC = () => {
   };
 
   const handleSendInvite = async () => {
-    if (!organization || !inviteEmail || !inviteRole) {
+    const orgId = organizationIdRef.current;
+    if (!orgId || !inviteEmail || !inviteRole) {
       toastService.error(t('orgSettings.invite.errors.emailRequired'));
       return;
     }
 
     setIsSendingInvite(true);
     try {
-      await inviteMember(organization.id, {
+      await inviteMember(orgId, {
         email: inviteEmail,
         role: inviteRole,
       });
@@ -567,7 +613,7 @@ export const OrganizationSettings: React.FC = () => {
       // Reload invitations
       await loadMembersAndInvitations();
     } catch (error: any) {
-      console.error('Failed to send invite:', error);
+      console.error('[INVITE] Failed to send invite:', error);
       if (error.message.includes('already a member')) {
         toastService.error(t('orgSettings.invite.errors.alreadyMember'));
       } else if (error.message.includes('already been sent')) {
@@ -581,13 +627,14 @@ export const OrganizationSettings: React.FC = () => {
   };
 
   const handleResendInvitation = async (invitationId: string) => {
-    if (!organization) return;
+    const orgId = organizationIdRef.current;
+    if (!orgId) return;
 
     try {
-      await resendInvitation(organization.id, invitationId);
+      await resendInvitation(orgId, invitationId);
       toastService.success(t('orgSettings.invitations.resent'));
     } catch (error: any) {
-      console.error('Failed to resend invitation:', error);
+      console.error('[INVITE] Failed to resend invitation:', error);
 
       // If invitation not found, it was likely already accepted - refresh the list
       if (error.message?.includes('Invitation not found')) {
@@ -601,14 +648,15 @@ export const OrganizationSettings: React.FC = () => {
   };
 
   const handleCancelInvitation = async (invitationId: string) => {
-    if (!organization) return;
+    const orgId = organizationIdRef.current;
+    if (!orgId) return;
 
     try {
-      await cancelInvitation(organization.id, invitationId);
+      await cancelInvitation(orgId, invitationId);
       toastService.success(t('orgSettings.invitations.cancelled'));
       await loadMembersAndInvitations();
     } catch (error: any) {
-      console.error('Failed to cancel invitation:', error);
+      console.error('[INVITE] Failed to cancel invitation:', error);
 
       // If invitation not found, it was likely already accepted - refresh the list
       if (error.message?.includes('Invitation not found')) {
@@ -621,26 +669,27 @@ export const OrganizationSettings: React.FC = () => {
   };
 
   const handleRemoveMember = async (memberId: string) => {
-    if (!organization) return;
+    const orgId = organizationIdRef.current;
+    if (!orgId) return;
 
     if (!window.confirm(t('orgSettings.members.confirmRemove'))) {
       return;
     }
 
     try {
-      const result = await removeMember(organization.id, memberId);
+      const result = await removeMember(orgId, memberId);
       toastService.success(t('orgSettings.members.removed'));
 
       // Check if the removed user is the current user
       const currentUser = getCurrentUser();
-      console.log('[ORGANIZATIONS] Checking if current user was removed');
-      console.log('[ORGANIZATIONS] Current user:', currentUser);
-      console.log('[ORGANIZATIONS] Removed userId:', result.userId);
-      console.log('[ORGANIZATIONS] Match:', currentUser?.id === result.userId);
+      console.log('[MEMBERS] Checking if current user was removed');
+      console.log('[MEMBERS] Current user:', currentUser);
+      console.log('[MEMBERS] Removed userId:', result.userId);
+      console.log('[MEMBERS] Match:', currentUser?.id === result.userId);
 
       if (currentUser && result.userId === currentUser.id) {
         // User removed themselves or was removed - log them out
-        console.log('[ORGANIZATIONS] Current user was removed from organization - logging out');
+        console.log('[MEMBERS] Current user was removed from organization - logging out');
         toastService.info('You have been removed from the organization. Logging out...');
 
         // Wait a moment for the toast to show
@@ -650,11 +699,11 @@ export const OrganizationSettings: React.FC = () => {
         }, 2000);
       } else {
         // Reload members list if it wasn't current user
-        console.log('[ORGANIZATIONS] Different user was removed, reloading members list');
+        console.log('[MEMBERS] Different user was removed, reloading members list');
         await loadMembersAndInvitations();
       }
     } catch (error) {
-      console.error('Failed to remove member:', error);
+      console.error('[MEMBERS] Failed to remove member:', error);
       toastService.error('Failed to remove member');
     }
   };
@@ -1580,6 +1629,41 @@ export const OrganizationSettings: React.FC = () => {
                     </Select>
                   </FormControl>
 
+                  {/* Position dropdown - only show for players */}
+                  {memberRole === 'player' && (organization as any)?.sport?.positions?.length > 0 && (
+                    <FormControl sx={{ minWidth: 150 }} disabled={isAddingMember}>
+                      <InputLabel>{t('orgSettings.teamMembers.position')}</InputLabel>
+                      <Select
+                        value={memberPositionId}
+                        label={t('orgSettings.teamMembers.position')}
+                        onChange={(e) => setMemberPositionId(e.target.value)}
+                      >
+                        <MenuItem value="">
+                          <em>{t('orgSettings.teamMembers.noPosition')}</em>
+                        </MenuItem>
+                        {(organization as any)?.sport?.positions?.map((pos: any) => (
+                          <MenuItem key={pos.id} value={pos.id}>
+                            {pos.abbreviation} - {pos.nameTranslations?.[locale as 'en' | 'de'] || pos.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  )}
+
+                  {/* Jersey Number - only show for players */}
+                  {memberRole === 'player' && (
+                    <TextField
+                      sx={{ width: 100 }}
+                      label={t('orgSettings.teamMembers.jerseyNumber')}
+                      type="number"
+                      value={memberJerseyNumber}
+                      onChange={(e) => setMemberJerseyNumber(e.target.value)}
+                      disabled={isAddingMember}
+                      inputProps={{ min: 0, max: 99 }}
+                      placeholder="--"
+                    />
+                  )}
+
                   <Button
                     variant="contained"
                     onClick={handleAddTeamMember}
@@ -1615,56 +1699,76 @@ export const OrganizationSettings: React.FC = () => {
                       <TableHead>
                         <TableRow>
                           <TableCell>{t('orgSettings.teamMembers.memberName')}</TableCell>
-                          <TableCell>{t('orgSettings.teamMembers.email')}</TableCell>
                           <TableCell>{t('orgSettings.teamMembers.role')}</TableCell>
+                          <TableCell>{t('orgSettings.teamMembers.position')}</TableCell>
+                          <TableCell align="center">#</TableCell>
                           <TableCell>{t('orgSettings.teamMembers.joinedAt')}</TableCell>
                           <TableCell align="right">{t('orgSettings.teamMembers.actions')}</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {teamMembers.map((member) => (
-                          <TableRow key={member.id}>
-                            <TableCell>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Avatar
-                                  src={member.user.avatarUrl}
-                                  sx={{ width: 32, height: 32 }}
-                                >
-                                  {member.user.name.charAt(0)}
-                                </Avatar>
-                                <Typography variant="body2">
-                                  {member.user.name}
-                                </Typography>
-                              </Box>
-                            </TableCell>
-                            <TableCell>{member.user.email}</TableCell>
-                            <TableCell>
-                              <Chip
-                                label={formatTeamMemberRole(member.role)}
-                                size="small"
-                                color={
-                                  member.role === 'head_coach' ? 'primary' :
-                                  member.role === 'assistant_coach' ? 'secondary' :
-                                  'default'
-                                }
-                              />
-                            </TableCell>
-                            <TableCell>
-                              {new Date(member.joinedAt).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell align="right">
-                              <Tooltip title={t('orgSettings.teamMembers.remove')}>
-                                <IconButton
+                        {teamMembers.map((member) => {
+                          // Use position data directly from team member (now returned from backend)
+                          const positionDisplay = member.position
+                            ? member.position.abbreviation
+                            : '-';
+
+                          return (
+                            <TableRow key={member.id}>
+                              <TableCell>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Avatar
+                                    src={member.user.avatarUrl}
+                                    sx={{ width: 32, height: 32 }}
+                                  >
+                                    {member.user.name.charAt(0)}
+                                  </Avatar>
+                                  <Box>
+                                    <Typography variant="body2">
+                                      {member.user.name}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {member.user.email}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              </TableCell>
+                              <TableCell>
+                                <Chip
+                                  label={formatTeamMemberRole(member.role)}
                                   size="small"
-                                  color="error"
-                                  onClick={() => handleRemoveTeamMember(member.userId)}
-                                >
-                                  <PersonRemoveIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                                  color={
+                                    member.role === 'head_coach' ? 'primary' :
+                                    member.role === 'assistant_coach' ? 'secondary' :
+                                    'default'
+                                  }
+                                />
+                              </TableCell>
+                              <TableCell>
+                                {member.role === 'player' ? positionDisplay : '-'}
+                              </TableCell>
+                              <TableCell align="center">
+                                {member.role === 'player' && member.jerseyNumber != null
+                                  ? member.jerseyNumber
+                                  : '-'}
+                              </TableCell>
+                              <TableCell>
+                                {new Date(member.joinedAt).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell align="right">
+                                <Tooltip title={t('orgSettings.teamMembers.remove')}>
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={() => handleRemoveTeamMember(member.userId)}
+                                  >
+                                    <PersonRemoveIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </TableContainer>

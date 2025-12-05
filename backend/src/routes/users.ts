@@ -43,10 +43,26 @@ router.get('/me', authenticate, async (req, res) => {
   }
 });
 
-// GET /api/users - Get all users (for team directory)
+// GET /api/users - Get all users in the same organization (for team directory)
 router.get('/', authenticate, async (req, res) => {
   try {
+    // Get the current user to find their organizationId
+    const currentUser = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { organizationId: true },
+    });
+
+    if (!currentUser?.organizationId) {
+      // If user has no organization, return empty array
+      console.log('[USERS] User has no organization, returning empty array');
+      return res.json([]);
+    }
+
+    // Only return users from the same organization
     const users = await prisma.user.findMany({
+      where: {
+        organizationId: currentUser.organizationId,
+      },
       select: {
         id: true,
         name: true,
@@ -59,6 +75,8 @@ router.get('/', authenticate, async (req, res) => {
         heightCm: true,
         sex: true,
         metricsPublic: true,
+        birthDate: true,
+        avatarUrl: true,
       },
       orderBy: [
         { role: 'asc' }, // Coaches first
@@ -66,6 +84,7 @@ router.get('/', authenticate, async (req, res) => {
       ],
     });
 
+    console.log(`[USERS] Returning ${users.length} users for org ${currentUser.organizationId}`);
     res.json(users);
   } catch (error) {
     console.error('Get users error:', error);

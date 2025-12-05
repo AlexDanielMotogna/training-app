@@ -2,9 +2,13 @@ import express from 'express';
 import { z } from 'zod';
 import prisma from '../utils/prisma.js';
 import { authenticate } from '../middleware/auth.js';
+import { optionalTenant } from '../middleware/tenant.js';
 import { initializeExerciseCategories } from '../utils/initExerciseCategories.js';
 
 const router = express.Router();
+
+// Apply auth + optional tenant to all routes
+router.use(authenticate, optionalTenant);
 
 // Validation schemas
 const createCategorySchema = z.object({
@@ -26,12 +30,27 @@ const updateCategorySchema = z.object({
 });
 
 // GET /api/exercise-categories - Get all categories (authenticated)
-router.get('/', authenticate, async (req, res) => {
+// Returns: global categories (organizationId = null) + org-specific categories
+router.get('/', async (req, res) => {
   try {
+    // Build filter: global categories OR categories from user's organization
+    const where: any = {
+      OR: [
+        { organizationId: null }, // Global/system categories
+      ],
+    };
+
+    // Add org-specific categories if user has an organization
+    if (req.tenant?.organizationId) {
+      where.OR.push({ organizationId: req.tenant.organizationId });
+    }
+
     const categories = await prisma.exerciseCategory.findMany({
+      where,
       orderBy: { nameEN: 'asc' },
     });
 
+    console.log(`[EXERCISE CATEGORIES] Returning ${categories.length} categories for org ${req.tenant?.organizationId || 'none'}`);
     res.json(categories);
   } catch (error) {
     console.error('[EXERCISE CATEGORIES] Get categories error:', error);
@@ -40,10 +59,23 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // GET /api/exercise-categories/active - Get only active categories (authenticated)
-router.get('/active', authenticate, async (req, res) => {
+router.get('/active', async (req, res) => {
   try {
+    // Build filter: global categories OR categories from user's organization
+    const where: any = {
+      active: true,
+      OR: [
+        { organizationId: null }, // Global/system categories
+      ],
+    };
+
+    // Add org-specific categories if user has an organization
+    if (req.tenant?.organizationId) {
+      where.OR.push({ organizationId: req.tenant.organizationId });
+    }
+
     const categories = await prisma.exerciseCategory.findMany({
-      where: { active: true },
+      where,
       orderBy: { nameEN: 'asc' },
     });
 
@@ -55,18 +87,28 @@ router.get('/active', authenticate, async (req, res) => {
 });
 
 // POST /api/exercise-categories/init - Initialize default categories (coach only)
-router.post('/init', authenticate, async (req, res) => {
+router.post('/init', async (req, res) => {
   try {
-    const user = (req as any).user;
-
     // Only coaches can initialize categories
-    if (user.role !== 'coach') {
+    const isCoach = req.user.role === 'coach' || req.tenant?.permissions.isCoach;
+    if (!isCoach) {
       return res.status(403).json({ error: 'Only coaches can initialize categories' });
     }
 
     await initializeExerciseCategories();
 
+    // Return categories visible to user
+    const where: any = {
+      OR: [
+        { organizationId: null },
+      ],
+    };
+    if (req.tenant?.organizationId) {
+      where.OR.push({ organizationId: req.tenant.organizationId });
+    }
+
     const categories = await prisma.exerciseCategory.findMany({
+      where,
       orderBy: { nameEN: 'asc' },
     });
 
@@ -81,20 +123,25 @@ router.post('/init', authenticate, async (req, res) => {
 });
 
 // POST /api/exercise-categories - Create new category (coach only)
-router.post('/', authenticate, async (req, res) => {
+router.post('/', async (req, res) => {
   try {
-    const user = (req as any).user;
-
     // Only coaches can create categories
-    if (user.role !== 'coach') {
+    const isCoach = req.user.role === 'coach' || req.tenant?.permissions.isCoach;
+    if (!isCoach) {
       return res.status(403).json({ error: 'Only coaches can create categories' });
     }
 
     const data = createCategorySchema.parse(req.body);
 
-    // Check if key already exists
-    const existing = await prisma.exerciseCategory.findUnique({
-      where: { key: data.key },
+    // Check if key already exists in global or user's org
+    const existing = await prisma.exerciseCategory.findFirst({
+      where: {
+        key: data.key,
+        OR: [
+          { organizationId: null },
+          { organizationId: req.tenant?.organizationId || null },
+        ],
+      },
     });
 
     if (existing) {
@@ -104,11 +151,13 @@ router.post('/', authenticate, async (req, res) => {
     const category = await prisma.exerciseCategory.create({
       data: {
         ...data,
-        createdBy: user.userId,
+        createdBy: req.user.userId,
+        // Set organizationId for org-specific categories
+        organizationId: req.tenant?.organizationId || null,
       },
     });
 
-    console.log(`[EXERCISE CATEGORIES] Created category "${category.key}" by ${user.email}`);
+    console.log(`[EXERCISE CATEGORIES] Created category "${category.key}" by ${req.user.email}`);
     res.status(201).json(category);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -120,12 +169,11 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // PATCH /api/exercise-categories/:id - Update category (coach only)
-router.patch('/:id', authenticate, async (req, res) => {
+router.patch('/:id', async (req, res) => {
   try {
-    const user = (req as any).user;
-
     // Only coaches can update categories
-    if (user.role !== 'coach') {
+    const isCoach = req.user.role === 'coach' || req.tenant?.permissions.isCoach;
+    if (!isCoach) {
       return res.status(403).json({ error: 'Only coaches can update categories' });
     }
 
@@ -141,10 +189,18 @@ router.patch('/:id', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Category not found' });
     }
 
-    // If updating key, check for duplicates
+    // Check access: can only update categories from user's org (not global)
+    if (existing.organizationId && existing.organizationId !== req.tenant?.organizationId) {
+      return res.status(403).json({ error: 'Access denied to this category' });
+    }
+
+    // If updating key, check for duplicates in same scope
     if (data.key && data.key !== existing.key) {
-      const duplicate = await prisma.exerciseCategory.findUnique({
-        where: { key: data.key },
+      const duplicate = await prisma.exerciseCategory.findFirst({
+        where: {
+          key: data.key,
+          organizationId: existing.organizationId,
+        },
       });
 
       if (duplicate) {
@@ -157,7 +213,7 @@ router.patch('/:id', authenticate, async (req, res) => {
       data,
     });
 
-    console.log(`[EXERCISE CATEGORIES] Updated category "${category.key}" by ${user.email}`);
+    console.log(`[EXERCISE CATEGORIES] Updated category "${category.key}" by ${req.user.email}`);
     res.json(category);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -169,12 +225,11 @@ router.patch('/:id', authenticate, async (req, res) => {
 });
 
 // DELETE /api/exercise-categories/:id - Delete category (coach only)
-router.delete('/:id', authenticate, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const user = (req as any).user;
-
     // Only coaches can delete categories
-    if (user.role !== 'coach') {
+    const isCoach = req.user.role === 'coach' || req.tenant?.permissions.isCoach;
+    if (!isCoach) {
       return res.status(403).json({ error: 'Only coaches can delete categories' });
     }
 
@@ -187,6 +242,16 @@ router.delete('/:id', authenticate, async (req, res) => {
 
     if (!existing) {
       return res.status(404).json({ error: 'Category not found' });
+    }
+
+    // Check access: can only delete categories from user's org (not global)
+    if (existing.organizationId && existing.organizationId !== req.tenant?.organizationId) {
+      return res.status(403).json({ error: 'Access denied to this category' });
+    }
+
+    // Prevent deleting global categories (only platform admins should do that)
+    if (!existing.organizationId && req.user.platformRole !== 'super_admin') {
+      return res.status(403).json({ error: 'Cannot delete global categories' });
     }
 
     // Check if category is being used by any exercises
@@ -205,7 +270,7 @@ router.delete('/:id', authenticate, async (req, res) => {
       where: { id },
     });
 
-    console.log(`[EXERCISE CATEGORIES] Deleted category "${existing.key}" by ${user.email}`);
+    console.log(`[EXERCISE CATEGORIES] Deleted category "${existing.key}" by ${req.user.email}`);
     res.json({ message: 'Category deleted successfully' });
   } catch (error) {
     console.error('[EXERCISE CATEGORIES] Delete category error:', error);

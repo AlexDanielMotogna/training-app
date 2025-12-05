@@ -23,7 +23,11 @@ router.get('/', requireTenant, async (req, res) => {
       include: {
         ageCategory: true,
         _count: {
-          select: { members: true },
+          select: {
+            members: {
+              where: { isActive: true }, // Only count active members
+            },
+          },
         },
       },
       orderBy: [
@@ -111,7 +115,14 @@ router.get('/:id', requireTenant, async (req, res) => {
                 avatarUrl: true,
               },
             },
-            // position: true, // Not yet defined in schema
+            position: {
+              select: {
+                id: true,
+                name: true,
+                abbreviation: true,
+                group: true,
+              },
+            },
           },
         },
       },
@@ -345,7 +356,14 @@ router.get('/:id/members', requireTenant, async (req, res) => {
             birthDate: true,
           },
         },
-        // Note: position relation not yet defined in schema
+        position: {
+          select: {
+            id: true,
+            name: true,
+            abbreviation: true,
+            group: true,
+          },
+        },
       },
       orderBy: [
         { role: 'asc' },
@@ -423,7 +441,14 @@ router.post('/:id/members', requireTenant, requireOrgAdmin, async (req, res) => 
         },
         include: {
           user: { select: { id: true, name: true, email: true } },
-          // position: true, // Not yet defined in schema
+          position: {
+            select: {
+              id: true,
+              name: true,
+              abbreviation: true,
+              group: true,
+            },
+          },
         },
       });
       return res.json(member);
