@@ -22,6 +22,7 @@ import { calculateAge } from '../services/userProfile';
 import { authService } from '../services/api';
 import type { Position } from '../types/exercise';
 import { toastService } from '../services/toast';
+import { backgrounds } from '../designTokens';
 
 const DEFAULT_LOGO = '/teamtraining-logo.svg';
 const positions: Position[] = ['RB', 'WR', 'LB', 'OL', 'DB', 'QB', 'DL', 'TE', 'K/P'];
@@ -114,7 +115,7 @@ export const Auth: React.FC = () => {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'primary.main',
+        backgroundColor: backgrounds.dark.primary,
         p: 2,
       }}
     >

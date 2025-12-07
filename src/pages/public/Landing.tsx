@@ -43,10 +43,8 @@ import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import StarIcon from '@mui/icons-material/Star';
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
-import TwitterIcon from '@mui/icons-material/Twitter';
-import LinkedInIcon from '@mui/icons-material/LinkedIn';
-import InstagramIcon from '@mui/icons-material/Instagram';
 import { useI18n } from '../../i18n/I18nProvider';
+import { Footer } from '../../components/public/Footer';
 
 // Hero images from Unsplash (free to use)
 const HERO_IMAGES = [
@@ -107,21 +105,21 @@ const SPORTS = [
   { icon: SportsCricketIcon, name: 'Lacrosse', color: '#9932CC' },
 ];
 
-// Athletes in action - LEFT side (facing RIGHT →)
+// Athletes in action - LEFT side (facing RIGHT →) - 4 images mapped to specific sports
 const ATHLETE_IMAGES_LEFT = [
-  'https://images.unsplash.com/photo-1504450758481-7338eba7524a?w=400&h=600&fit=crop', // American Football players running right
-  'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=400&h=600&fit=crop', // Basketball players moving right
-  'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=400&h=600&fit=crop', // Soccer players running right
-  'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=400&h=600&fit=crop', // Volleyball players jumping right
-  'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=400&h=600&fit=crop', // Handball players moving right
+  '/atheletes/left/baseball-left.png', // Basketball (using baseball)
+  '/atheletes/left/soccer-left.jpg', // Soccer
+  '/atheletes/left/lacrose-left.png', // Volleyball (using lacrosse)
+  '/atheletes/left/handball-left.png', // Handball
 ];
 
-// Athletes in action - RIGHT side (facing LEFT ←)
+// Athletes in action - RIGHT side (facing LEFT ←) - matches sports with right-facing images
 const ATHLETE_IMAGES_RIGHT = [
-  'https://images.unsplash.com/photo-1486286701208-1d58e9338013?w=400&h=600&fit=crop', // Rugby players moving left
-  'https://images.unsplash.com/photo-1515703407324-5f753afd8be8?w=400&h=600&fit=crop', // Ice Hockey players moving left
-  'https://images.unsplash.com/photo-1563299796-17596ed6b017?w=400&h=600&fit=crop', // Baseball players moving left
-  'https://images.unsplash.com/photo-1531415074968-7b2a7f6a6f1f?w=400&h=600&fit=crop', // Lacrosse players moving left
+  '/atheletes/right/volleyball-right.png', // Volleyball
+  '/atheletes/right/rugby-right.png', // Rugby
+  '/atheletes/right/hockey-right.png', // Ice Hockey
+  '/atheletes/right/basketball-right.png', // Basketball
+  '/atheletes/right/american-football-right.png', // American Football
 ];
 
 const STATS = [
@@ -216,54 +214,131 @@ export const Landing: React.FC = () => {
           left: 0,
           right: 0,
           zIndex: 1100,
-          py: 2,
-          px: { xs: 2, md: 6 },
-          bgcolor: 'rgba(10, 10, 10, 0.8)',
-          backdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          bgcolor: 'rgba(10, 10, 10, 0.7)',
+          backdropFilter: 'blur(12px) saturate(180%)',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
         }}
       >
-        <Container maxWidth="xl">
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Container maxWidth="lg">
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              height: 64,
+            }}
+          >
+            {/* Logo */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                cursor: 'pointer',
+                '&:hover .logo-icon': {
+                  transform: 'scale(1.05)',
+                },
+              }}
+            >
               <Box
+                className="logo-icon"
                 sx={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 2,
+                  width: 32,
+                  height: 32,
+                  borderRadius: 1.5,
                   background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  transition: 'transform 0.2s ease',
                 }}
               >
-                <FitnessCenterIcon sx={{ color: 'white', fontSize: 24 }} />
+                <FitnessCenterIcon sx={{ color: 'white', fontSize: 18 }} />
               </Box>
-              <Typography variant="h5" fontWeight={800} letterSpacing="-0.5px">
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 600,
+                  fontSize: '1.125rem',
+                  letterSpacing: '-0.025em',
+                  background: 'linear-gradient(135deg, #fff 0%, #e0e0e0 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
                 TeamTrainer
               </Typography>
             </Box>
 
             {/* Desktop Nav */}
             {!isMobile && (
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Button sx={{ color: 'grey.300', '&:hover': { color: 'white' } }}>
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <Button
+                  sx={{
+                    color: 'rgba(255,255,255,0.7)',
+                    fontSize: '0.9375rem',
+                    fontWeight: 500,
+                    px: 2.5,
+                    py: 1,
+                    textTransform: 'none',
+                    '&:hover': {
+                      color: 'white',
+                      bgcolor: 'rgba(255,255,255,0.05)',
+                    },
+                  }}
+                >
                   Features
                 </Button>
-                <Button sx={{ color: 'grey.300', '&:hover': { color: 'white' } }}>
+                <Button
+                  sx={{
+                    color: 'rgba(255,255,255,0.7)',
+                    fontSize: '0.9375rem',
+                    fontWeight: 500,
+                    px: 2.5,
+                    py: 1,
+                    textTransform: 'none',
+                    '&:hover': {
+                      color: 'white',
+                      bgcolor: 'rgba(255,255,255,0.05)',
+                    },
+                  }}
+                >
                   Sports
                 </Button>
                 <Button
                   onClick={() => navigate('/pricing')}
-                  sx={{ color: 'grey.300', '&:hover': { color: 'white' } }}
+                  sx={{
+                    color: 'rgba(255,255,255,0.7)',
+                    fontSize: '0.9375rem',
+                    fontWeight: 500,
+                    px: 2.5,
+                    py: 1,
+                    textTransform: 'none',
+                    '&:hover': {
+                      color: 'white',
+                      bgcolor: 'rgba(255,255,255,0.05)',
+                    },
+                  }}
                 >
                   {t('landing.nav.pricing')}
                 </Button>
-                <Box sx={{ width: 1, height: 24, bgcolor: 'grey.800', mx: 2 }} />
+
+                <Box sx={{ width: 24 }} />
+
                 <Button
                   variant="text"
                   onClick={() => navigate('/login')}
-                  sx={{ color: 'white' }}
+                  sx={{
+                    color: 'rgba(255,255,255,0.9)',
+                    fontSize: '0.9375rem',
+                    fontWeight: 500,
+                    px: 2.5,
+                    py: 1,
+                    textTransform: 'none',
+                    '&:hover': {
+                      bgcolor: 'rgba(255,255,255,0.05)',
+                    },
+                  }}
                 >
                   {t('landing.nav.login')}
                 </Button>
@@ -271,10 +346,18 @@ export const Landing: React.FC = () => {
                   variant="contained"
                   onClick={() => navigate('/signup')}
                   sx={{
-                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                    bgcolor: 'white',
+                    color: '#0a0a0a',
+                    fontSize: '0.9375rem',
+                    fontWeight: 600,
                     px: 3,
+                    py: 1,
+                    textTransform: 'none',
+                    borderRadius: 2,
+                    boxShadow: 'none',
                     '&:hover': {
-                      background: 'linear-gradient(135deg, #5558e8 0%, #7c4fe0 100%)',
+                      bgcolor: 'rgba(255,255,255,0.9)',
+                      boxShadow: '0 4px 12px rgba(255,255,255,0.15)',
                     },
                   }}
                 >
@@ -544,39 +627,160 @@ export const Landing: React.FC = () => {
               >
                 <Box
                   sx={{
-                    bgcolor: 'rgba(255,255,255,0.05)',
+                    bgcolor: 'rgba(20,20,25,0.95)',
                     borderRadius: 3,
                     border: '1px solid rgba(255,255,255,0.1)',
                     overflow: 'hidden',
                     boxShadow: '0 25px 80px rgba(0,0,0,0.5)',
                   }}
                 >
-                  {/* Fake Browser Header */}
+                  {/* App Header */}
                   <Box
                     sx={{
-                      px: 2,
-                      py: 1.5,
-                      bgcolor: 'rgba(255,255,255,0.05)',
+                      px: 3,
+                      py: 2,
+                      bgcolor: 'rgba(255,255,255,0.03)',
                       borderBottom: '1px solid rgba(255,255,255,0.1)',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 1,
+                      justifyContent: 'space-between',
                     }}
                   >
-                    <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#ff5f57' }} />
-                    <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#febc2e' }} />
-                    <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#28c840' }} />
+                    <Typography variant="h6" sx={{ color: 'white', fontWeight: 600 }}>
+                      My Training
+                    </Typography>
+                    <Chip
+                      label="Week 3"
+                      size="small"
+                      sx={{
+                        bgcolor: 'rgba(99,102,241,0.2)',
+                        color: '#a5b4fc',
+                        borderRadius: 1.5,
+                        fontWeight: 600,
+                      }}
+                    />
                   </Box>
-                  <Box
-                    component="img"
-                    src="https://images.unsplash.com/photo-1551958219-acbc608c6377?w=800&q=80"
-                    alt="Dashboard Preview"
-                    sx={{
-                      width: '100%',
-                      display: 'block',
-                    }}
-                  />
+
+                  {/* Workout Content */}
+                  <Box sx={{ p: 3 }}>
+                    {/* Compound Lifts Block */}
+                    <Box
+                      sx={{
+                        mb: 2.5,
+                        bgcolor: 'rgba(255,255,255,0.03)',
+                        borderRadius: 2,
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <Box sx={{ px: 2.5, py: 1.5, bgcolor: 'rgba(99,102,241,0.15)', borderBottom: '1px solid rgba(99,102,241,0.2)' }}>
+                        <Typography variant="body2" sx={{ color: '#a5b4fc', fontWeight: 600, fontSize: '0.8rem' }}>
+                          COMPOUND LIFTS
+                        </Typography>
+                      </Box>
+                      <Box sx={{ p: 2 }}>
+                        {[
+                          { name: 'Back Squat', sets: '4x5', weight: '140kg', complete: true },
+                          { name: 'Bench Press', sets: '4x5', weight: '100kg', complete: true },
+                          { name: 'Deadlift', sets: '3x5', weight: '160kg', complete: false },
+                        ].map((ex, i) => (
+                          <Box
+                            key={i}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              py: 1.25,
+                              borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                              opacity: ex.complete ? 0.6 : 1,
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                              <Box
+                                sx={{
+                                  width: 20,
+                                  height: 20,
+                                  borderRadius: '50%',
+                                  border: ex.complete ? 'none' : '2px solid rgba(255,255,255,0.3)',
+                                  bgcolor: ex.complete ? '#10b981' : 'transparent',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                {ex.complete && (
+                                  <Box component="span" sx={{ color: 'white', fontSize: '0.75rem' }}>✓</Box>
+                                )}
+                              </Box>
+                              <Typography variant="body2" sx={{ color: 'white', fontWeight: 500 }}>
+                                {ex.name}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', gap: 2 }}>
+                              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                                {ex.sets}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#a5b4fc', fontWeight: 600 }}>
+                                {ex.weight}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        ))}
+                      </Box>
+                    </Box>
+
+                    {/* Accessory Work Block */}
+                    <Box
+                      sx={{
+                        bgcolor: 'rgba(255,255,255,0.03)',
+                        borderRadius: 2,
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <Box sx={{ px: 2.5, py: 1.5, bgcolor: 'rgba(236,72,153,0.15)', borderBottom: '1px solid rgba(236,72,153,0.2)' }}>
+                        <Typography variant="body2" sx={{ color: '#f9a8d4', fontWeight: 600, fontSize: '0.8rem' }}>
+                          ACCESSORY WORK
+                        </Typography>
+                      </Box>
+                      <Box sx={{ p: 2 }}>
+                        {[
+                          { name: 'Pull-ups', sets: '3x8' },
+                          { name: 'Dumbbell Rows', sets: '3x10' },
+                        ].map((ex, i) => (
+                          <Box
+                            key={i}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              py: 1.25,
+                              borderBottom: i < 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                              <Box
+                                sx={{
+                                  width: 20,
+                                  height: 20,
+                                  borderRadius: '50%',
+                                  border: '2px solid rgba(255,255,255,0.3)',
+                                }}
+                              />
+                              <Typography variant="body2" sx={{ color: 'white', fontWeight: 500 }}>
+                                {ex.name}
+                              </Typography>
+                            </Box>
+                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                              {ex.sets}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Box>
+                    </Box>
+                  </Box>
                 </Box>
+
                 {/* Floating Stats Card */}
                 <Box
                   sx={{
@@ -591,13 +795,13 @@ export const Landing: React.FC = () => {
                   }}
                 >
                   <Typography variant="caption" color="text.secondary">
-                    Team Performance
+                    Weekly Progress
                   </Typography>
-                  <Typography variant="h4" fontWeight={700} color="success.main">
-                    +27%
+                  <Typography variant="h4" fontWeight={700} sx={{ color: '#10b981' }}>
+                    8/12
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    vs last month
+                    workouts completed
                   </Typography>
                 </Box>
               </Box>
@@ -659,12 +863,12 @@ export const Landing: React.FC = () => {
         sx={{
           position: 'relative',
           py: { xs: 10, md: 14 },
-          background: 'linear-gradient(180deg, rgba(10,10,10,1) 0%, rgba(20,15,30,1) 30%, rgba(30,20,45,1) 70%, rgba(10,10,10,1) 100%)',
+          background: 'linear-gradient(180deg, rgba(10,10,10,1) 0%, rgba(15,12,22,1) 20%, rgba(20,15,30,1) 40%, rgba(25,18,38,1) 60%, rgba(20,15,30,1) 80%, rgba(10,10,10,1) 100%)',
           '&::before': {
             content: '""',
             position: 'absolute',
             inset: 0,
-            background: 'radial-gradient(circle at 50% 50%, rgba(99,102,241,0.15) 0%, transparent 50%)',
+            background: 'radial-gradient(circle at 50% 50%, rgba(99,102,241,0.12) 0%, transparent 60%)',
             pointerEvents: 'none',
           },
         }}
@@ -735,102 +939,122 @@ export const Landing: React.FC = () => {
               Each sport comes pre-configured with positions, age categories, and sport-specific metrics.
             </Typography>
 
-            {/* Athletes Left Side (5 images - facing RIGHT →) */}
+            {/* Athletes Left Side (4 images - facing RIGHT →) */}
             <Box
               sx={{
                 position: 'absolute',
-                left: { xs: -60, sm: -80, md: -120, lg: -180 },
+                left: { xs: -60, sm: -80, md: -100, lg: -80 },
                 top: '50%',
                 transform: 'translateY(-50%)',
-                display: { xs: 'none', lg: 'flex' },
-                flexDirection: 'column',
-                gap: -12,
+                display: { xs: 'none', lg: 'block' },
                 zIndex: 0,
+                width: 240,
+                height: 500,
               }}
             >
-              {ATHLETE_IMAGES_LEFT.map((img, index) => (
+              {ATHLETE_IMAGES_LEFT.map((img, index) => {
+                // Map image file names to their matching SPORTS indices (9-item array):
+                // baseball→Baseball(7), soccer→Soccer(2), lacrose→Lacrosse(8), handball→Handball(4)
+                const sportIndexMap = [7, 2, 8, 4];
+                const sportIndex = sportIndexMap[index];
+                // Handball (index 3) needs larger size, Lacrosse/Volleyball (index 2) slightly smaller
+                const isHandball = index === 3;
+                const isLacrosse = index === 2;
+                const imageWidth = isHandball ? 380 : isLacrosse ? 260 : 240;
+                const imageHeight = isHandball ? 460 : isLacrosse ? 340 : 320;
+                const topOffset = index * 120;
+                return (
                 <Box
                   key={`left-${index}`}
                   sx={{
-                    width: 120,
-                    height: 160,
-                    borderRadius: 3,
-                    overflow: 'hidden',
-                    border: '2px solid',
-                    borderColor: hoveredSportIndex === index ? SPORTS[index].color : 'rgba(255,255,255,0.1)',
-                    opacity: hoveredSportIndex === null ? 0.4 : hoveredSportIndex === index ? 1 : 0.2,
-                    transform: hoveredSportIndex === index ? 'scale(1.15) translateX(10px)' : 'scale(1)',
+                    position: 'absolute',
+                    width: imageWidth,
+                    height: imageHeight,
+                    top: topOffset, // Vertical offset for each
+                    right: isHandball ? 30 : 100, // Adjust position for larger images
+                    zIndex: index + 1, // Bottom images in front, top images behind
+                    transform: hoveredSportIndex === sportIndex ? 'scale(1.1) translateX(20px)' : 'scale(1)',
                     transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                    filter: hoveredSportIndex === index
-                      ? `drop-shadow(0 8px 24px ${SPORTS[index].color}60) brightness(1.2)`
-                      : 'brightness(0.8)',
+                    filter: hoveredSportIndex === sportIndex
+                      ? `drop-shadow(0 8px 24px ${SPORTS[sportIndex].color}60) brightness(1.2)`
+                      : 'brightness(1)',
                     '&:hover': {
-                      transform: 'scale(1.15) translateX(10px)',
-                      opacity: 1,
-                      filter: `drop-shadow(0 8px 24px ${SPORTS[index].color}60) brightness(1.2)`,
+                      transform: 'scale(1.1) translateX(20px)',
+                      zIndex: 10,
+                      filter: `drop-shadow(0 8px 24px ${SPORTS[sportIndex].color}60) brightness(1.2)`,
                     },
                   }}
                 >
                   <Box
                     component="img"
                     src={img}
-                    alt={SPORTS[index].name}
+                    alt={SPORTS[sportIndex].name}
                     sx={{
                       width: '100%',
                       height: '100%',
-                      objectFit: 'cover',
+                      objectFit: 'contain',
                     }}
                   />
                 </Box>
-              ))}
+                );
+              })}
             </Box>
 
-            {/* Athletes Right Side (4 images - facing LEFT ←) */}
+            {/* Athletes Right Side (5 images - facing LEFT ←) */}
             <Box
               sx={{
                 position: 'absolute',
-                right: { xs: -60, sm: -80, md: -120, lg: -180 },
+                right: { xs: -60, sm: -80, md: -100, lg: -80 },
                 top: '50%',
                 transform: 'translateY(-50%)',
-                display: { xs: 'none', lg: 'flex' },
-                flexDirection: 'column',
-                gap: -12,
+                display: { xs: 'none', lg: 'block' },
                 zIndex: 0,
+                width: 240,
+                height: 500,
               }}
             >
               {ATHLETE_IMAGES_RIGHT.map((img, index) => {
-                const sportIndex = index + 5;
+                // Map image file names to their matching SPORTS indices (9-item array):
+                // volleyball→Volleyball(3), rugby→Rugby(5), hockey→IceHockey(6), basketball→Basketball(1), amfootball→AmFootball(0)
+                const sportIndexMap = [3, 5, 6, 1, 0];
+                const sportIndex = sportIndexMap[index];
+                const hasValidSport = sportIndex >= 0;
+                // Volleyball (index 0) and Basketball (index 3) need larger size due to different resolution
+                const isVolleyball = index === 0;
+                const isBasketball = index === 3;
+                const imageWidth = isBasketball ? 350 : isVolleyball ? 300 : 240;
+                const imageHeight = isBasketball ? 430 : isVolleyball ? 380 : 320;
+                const sportColor = hasValidSport ? SPORTS[sportIndex].color : '#666';
                 return (
                   <Box
                     key={`right-${index}`}
                     sx={{
-                      width: 120,
-                      height: 160,
-                      borderRadius: 3,
-                      overflow: 'hidden',
-                      border: '2px solid',
-                      borderColor: hoveredSportIndex === sportIndex ? SPORTS[sportIndex].color : 'rgba(255,255,255,0.1)',
-                      opacity: hoveredSportIndex === null ? 0.4 : hoveredSportIndex === sportIndex ? 1 : 0.2,
-                      transform: hoveredSportIndex === sportIndex ? 'scale(1.15) translateX(-10px)' : 'scale(1)',
+                      position: 'absolute',
+                      width: imageWidth,
+                      height: imageHeight,
+                      top: index * 120, // Vertical offset for each
+                      left: isBasketball ? 50 : isVolleyball ? 80 : 100, // Adjust position for larger images
+                      zIndex: index + 1, // Bottom images in front, top images behind
+                      transform: hasValidSport && hoveredSportIndex === sportIndex ? 'scale(1.1) translateX(-20px)' : 'scale(1)',
                       transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                      filter: hoveredSportIndex === sportIndex
-                        ? `drop-shadow(0 8px 24px ${SPORTS[sportIndex].color}60) brightness(1.2)`
-                        : 'brightness(0.8)',
+                      filter: hasValidSport && hoveredSportIndex === sportIndex
+                        ? `drop-shadow(0 8px 24px ${sportColor}60) brightness(1.2)`
+                        : 'brightness(1)',
                       '&:hover': {
-                        transform: 'scale(1.15) translateX(-10px)',
-                        opacity: 1,
-                        filter: `drop-shadow(0 8px 24px ${SPORTS[sportIndex].color}60) brightness(1.2)`,
+                        transform: 'scale(1.1) translateX(-20px)',
+                        zIndex: 10,
+                        filter: `drop-shadow(0 8px 24px ${sportColor}60) brightness(1.2)`,
                       },
                     }}
                   >
                     <Box
                       component="img"
                       src={img}
-                      alt={SPORTS[sportIndex].name}
+                      alt={hasValidSport ? SPORTS[sportIndex].name : 'Athlete'}
                       sx={{
                         width: '100%',
                         height: '100%',
-                        objectFit: 'cover',
+                        objectFit: 'contain',
                       }}
                     />
                   </Box>
@@ -903,7 +1127,13 @@ export const Landing: React.FC = () => {
       </Box>
 
       {/* Features Section */}
-      <Box sx={{ py: { xs: 8, md: 12 }, bgcolor: 'rgba(255,255,255,0.02)' }}>
+      <Box
+        sx={{
+          position: 'relative',
+          py: { xs: 8, md: 12 },
+          background: 'linear-gradient(180deg, rgba(10,10,10,1) 0%, rgba(12,12,14,1) 15%, rgba(14,14,16,1) 50%, rgba(12,12,14,1) 85%, rgba(10,10,10,1) 100%)',
+        }}
+      >
         <Container maxWidth="lg">
           <Typography
             variant="overline"
@@ -994,7 +1224,13 @@ export const Landing: React.FC = () => {
       </Box>
 
       {/* How It Works Section */}
-      <Box sx={{ py: { xs: 8, md: 12 } }}>
+      <Box
+        sx={{
+          position: 'relative',
+          py: { xs: 8, md: 12 },
+          background: 'linear-gradient(180deg, rgba(10,10,10,1) 0%, rgba(10,10,12,1) 50%, rgba(10,10,10,1) 100%)',
+        }}
+      >
         <Container maxWidth="lg">
           <Typography
             variant="overline"
@@ -1079,7 +1315,13 @@ export const Landing: React.FC = () => {
       </Box>
 
       {/* Testimonials Section */}
-      <Box sx={{ py: { xs: 8, md: 12 }, bgcolor: 'rgba(255,255,255,0.02)' }}>
+      <Box
+        sx={{
+          position: 'relative',
+          py: { xs: 8, md: 12 },
+          background: 'linear-gradient(180deg, rgba(10,10,10,1) 0%, rgba(12,12,14,1) 15%, rgba(14,14,16,1) 50%, rgba(12,12,14,1) 85%, rgba(10,10,10,1) 100%)',
+        }}
+      >
         <Container maxWidth="lg">
           <Typography
             variant="overline"
@@ -1164,7 +1406,13 @@ export const Landing: React.FC = () => {
       </Box>
 
       {/* Pricing Preview */}
-      <Box sx={{ py: { xs: 8, md: 12 } }}>
+      <Box
+        sx={{
+          position: 'relative',
+          py: { xs: 8, md: 12 },
+          background: 'linear-gradient(180deg, rgba(10,10,10,1) 0%, rgba(10,10,12,1) 50%, rgba(10,10,10,1) 100%)',
+        }}
+      >
         <Container maxWidth="lg">
           <Typography
             variant="overline"
@@ -1207,17 +1455,23 @@ export const Landing: React.FC = () => {
               <Card
                 sx={{
                   height: '100%',
-                  bgcolor: 'transparent',
+                  bgcolor: 'rgba(255,255,255,0.03)',
                   border: '1px solid rgba(255,255,255,0.1)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    bgcolor: 'rgba(255,255,255,0.05)',
+                    borderColor: 'rgba(255,255,255,0.2)',
+                    transform: 'translateY(-4px)',
+                  },
                 }}
               >
                 <CardContent sx={{ p: 4 }}>
-                  <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
+                  <Typography variant="h5" fontWeight={600} sx={{ mb: 1, color: 'white' }}>
                     Free
                   </Typography>
-                  <Typography variant="h3" fontWeight={800} sx={{ mb: 3 }}>
+                  <Typography variant="h3" fontWeight={800} sx={{ mb: 3, color: 'white' }}>
                     $0
-                    <Typography component="span" variant="body1" color="grey.500">
+                    <Typography component="span" variant="body1" color="grey.400">
                       /month
                     </Typography>
                   </Typography>
@@ -1225,7 +1479,7 @@ export const Landing: React.FC = () => {
                     {PLAN_FEATURES.free.map((feature) => (
                       <Box key={feature} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <CheckCircleIcon sx={{ fontSize: 20, color: '#10b981' }} />
-                        <Typography variant="body2" color="grey.400">
+                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
                           {feature}
                         </Typography>
                       </Box>
@@ -1253,9 +1507,15 @@ export const Landing: React.FC = () => {
               <Card
                 sx={{
                   height: '100%',
-                  background: 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(139,92,246,0.2) 100%)',
+                  background: 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.25) 100%)',
                   border: '2px solid #6366f1',
                   position: 'relative',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, rgba(99,102,241,0.3) 0%, rgba(139,92,246,0.3) 100%)',
+                    transform: 'translateY(-4px)',
+                    boxShadow: '0 12px 40px rgba(99,102,241,0.3)',
+                  },
                 }}
               >
                 <Box
@@ -1270,17 +1530,17 @@ export const Landing: React.FC = () => {
                     borderRadius: 1,
                   }}
                 >
-                  <Typography variant="caption" fontWeight={600}>
+                  <Typography variant="caption" fontWeight={600} sx={{ color: 'white' }}>
                     {t('landing.pricing.popular')}
                   </Typography>
                 </Box>
                 <CardContent sx={{ p: 4 }}>
-                  <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
+                  <Typography variant="h5" fontWeight={600} sx={{ mb: 1, color: 'white' }}>
                     Starter
                   </Typography>
-                  <Typography variant="h3" fontWeight={800} sx={{ mb: 3 }}>
+                  <Typography variant="h3" fontWeight={800} sx={{ mb: 3, color: 'white' }}>
                     $29
-                    <Typography component="span" variant="body1" color="grey.500">
+                    <Typography component="span" variant="body1" color="grey.300">
                       /month
                     </Typography>
                   </Typography>
@@ -1288,7 +1548,7 @@ export const Landing: React.FC = () => {
                     {PLAN_FEATURES.starter.map((feature) => (
                       <Box key={feature} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <CheckCircleIcon sx={{ fontSize: 20, color: '#10b981' }} />
-                        <Typography variant="body2" color="grey.300">
+                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)' }}>
                           {feature}
                         </Typography>
                       </Box>
@@ -1317,17 +1577,23 @@ export const Landing: React.FC = () => {
               <Card
                 sx={{
                   height: '100%',
-                  bgcolor: 'transparent',
+                  bgcolor: 'rgba(255,255,255,0.03)',
                   border: '1px solid rgba(255,255,255,0.1)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    bgcolor: 'rgba(255,255,255,0.05)',
+                    borderColor: 'rgba(255,255,255,0.2)',
+                    transform: 'translateY(-4px)',
+                  },
                 }}
               >
                 <CardContent sx={{ p: 4 }}>
-                  <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
+                  <Typography variant="h5" fontWeight={600} sx={{ mb: 1, color: 'white' }}>
                     Pro
                   </Typography>
-                  <Typography variant="h3" fontWeight={800} sx={{ mb: 3 }}>
+                  <Typography variant="h3" fontWeight={800} sx={{ mb: 3, color: 'white' }}>
                     $79
-                    <Typography component="span" variant="body1" color="grey.500">
+                    <Typography component="span" variant="body1" color="grey.400">
                       /month
                     </Typography>
                   </Typography>
@@ -1335,7 +1601,7 @@ export const Landing: React.FC = () => {
                     {PLAN_FEATURES.pro.map((feature) => (
                       <Box key={feature} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <CheckCircleIcon sx={{ fontSize: 20, color: '#10b981' }} />
-                        <Typography variant="body2" color="grey.400">
+                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
                           {feature}
                         </Typography>
                       </Box>
@@ -1380,6 +1646,19 @@ export const Landing: React.FC = () => {
           overflow: 'hidden',
         }}
       >
+        {/* Smooth transition overlay from dark to gradient */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 200,
+            background: 'linear-gradient(180deg, rgba(10,10,10,1) 0%, rgba(10,10,10,0.7) 30%, rgba(10,10,10,0) 100%)',
+            zIndex: 2,
+            pointerEvents: 'none',
+          }}
+        />
         {/* Background Gradient */}
         <Box
           sx={{
@@ -1400,7 +1679,7 @@ export const Landing: React.FC = () => {
           }}
         />
 
-        <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+        <Container maxWidth="md" sx={{ position: 'relative', zIndex: 3, textAlign: 'center' }}>
           <Typography
             variant="h2"
             sx={{
@@ -1465,142 +1744,7 @@ export const Landing: React.FC = () => {
       </Box>
 
       {/* Footer */}
-      <Box
-        component="footer"
-        sx={{
-          py: 8,
-          px: 3,
-          bgcolor: '#050505',
-          borderTop: '1px solid rgba(255,255,255,0.1)',
-        }}
-      >
-        <Container maxWidth="lg">
-          <Grid container spacing={6}>
-            <Grid item xs={12} md={4}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-                <Box
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 2,
-                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <FitnessCenterIcon sx={{ color: 'white', fontSize: 24 }} />
-                </Box>
-                <Typography variant="h5" fontWeight={800}>
-                  TeamTrainer
-                </Typography>
-              </Box>
-              <Typography variant="body2" color="grey.500" sx={{ mb: 3, maxWidth: 300 }}>
-                {t('landing.footer.tagline')}
-              </Typography>
-              <Stack direction="row" spacing={1}>
-                <IconButton size="small" sx={{ color: 'grey.500', '&:hover': { color: '#1DA1F2' } }}>
-                  <TwitterIcon />
-                </IconButton>
-                <IconButton size="small" sx={{ color: 'grey.500', '&:hover': { color: '#0A66C2' } }}>
-                  <LinkedInIcon />
-                </IconButton>
-                <IconButton size="small" sx={{ color: 'grey.500', '&:hover': { color: '#E4405F' } }}>
-                  <InstagramIcon />
-                </IconButton>
-              </Stack>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2}>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2 }}>
-                {t('landing.footer.product')}
-              </Typography>
-              <Stack spacing={1.5}>
-                <Typography variant="body2" color="grey.500" sx={{ cursor: 'pointer', '&:hover': { color: 'white' } }}>
-                  {t('landing.footer.features')}
-                </Typography>
-                <Typography variant="body2" color="grey.500" sx={{ cursor: 'pointer', '&:hover': { color: 'white' } }} onClick={() => navigate('/pricing')}>
-                  {t('landing.footer.pricing')}
-                </Typography>
-                <Typography variant="body2" color="grey.500" sx={{ cursor: 'pointer', '&:hover': { color: 'white' } }}>
-                  {t('landing.footer.integrations')}
-                </Typography>
-              </Stack>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2}>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2 }}>
-                {t('landing.footer.company')}
-              </Typography>
-              <Stack spacing={1.5}>
-                <Typography variant="body2" color="grey.500" sx={{ cursor: 'pointer', '&:hover': { color: 'white' } }}>
-                  {t('landing.footer.about')}
-                </Typography>
-                <Typography variant="body2" color="grey.500" sx={{ cursor: 'pointer', '&:hover': { color: 'white' } }}>
-                  {t('landing.footer.blog')}
-                </Typography>
-                <Typography variant="body2" color="grey.500" sx={{ cursor: 'pointer', '&:hover': { color: 'white' } }}>
-                  {t('landing.footer.careers')}
-                </Typography>
-              </Stack>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2}>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2 }}>
-                {t('landing.footer.legal')}
-              </Typography>
-              <Stack spacing={1.5}>
-                <Typography variant="body2" color="grey.500" sx={{ cursor: 'pointer', '&:hover': { color: 'white' } }}>
-                  {t('landing.footer.privacy')}
-                </Typography>
-                <Typography variant="body2" color="grey.500" sx={{ cursor: 'pointer', '&:hover': { color: 'white' } }}>
-                  {t('landing.footer.terms')}
-                </Typography>
-                <Typography variant="body2" color="grey.500" sx={{ cursor: 'pointer', '&:hover': { color: 'white' } }}>
-                  {t('landing.footer.cookies')}
-                </Typography>
-              </Stack>
-            </Grid>
-            <Grid item xs={6} sm={3} md={2}>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2 }}>
-                {t('landing.footer.support')}
-              </Typography>
-              <Stack spacing={1.5}>
-                <Typography variant="body2" color="grey.500" sx={{ cursor: 'pointer', '&:hover': { color: 'white' } }}>
-                  {t('landing.footer.help')}
-                </Typography>
-                <Typography variant="body2" color="grey.500" sx={{ cursor: 'pointer', '&:hover': { color: 'white' } }}>
-                  {t('landing.footer.contact')}
-                </Typography>
-                <Typography variant="body2" color="grey.500" sx={{ cursor: 'pointer', '&:hover': { color: 'white' } }}>
-                  {t('landing.footer.status')}
-                </Typography>
-              </Stack>
-            </Grid>
-          </Grid>
-          <Box
-            sx={{
-              mt: 8,
-              pt: 4,
-              borderTop: '1px solid rgba(255,255,255,0.1)',
-              display: 'flex',
-              flexDirection: { xs: 'column', sm: 'row' },
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 2,
-            }}
-          >
-            <Typography variant="body2" color="grey.600">
-              © {new Date().getFullYear()} TeamTrainer. {t('landing.footer.rights')}
-            </Typography>
-            <Stack direction="row" spacing={3}>
-              <Typography variant="body2" color="grey.600" sx={{ cursor: 'pointer', '&:hover': { color: 'grey.400' } }}>
-                Privacy Policy
-              </Typography>
-              <Typography variant="body2" color="grey.600" sx={{ cursor: 'pointer', '&:hover': { color: 'grey.400' } }}>
-                Terms of Service
-              </Typography>
-            </Stack>
-          </Box>
-        </Container>
-      </Box>
+      <Footer />
     </Box>
   );
 };
