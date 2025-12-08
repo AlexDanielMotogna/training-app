@@ -24,6 +24,7 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useI18n } from '../../i18n/I18nProvider';
 import { toastService } from '../../services/toast';
+import { backgrounds, borders, brand, text, radius, gradients } from '../../designTokens';
 
 interface InvitationDetails {
   organizationId: string;
@@ -36,6 +37,114 @@ interface InvitationDetails {
   isExpired: boolean;
   isAccepted: boolean;
 }
+
+// Dark input styles matching other public pages
+const darkInputStyles = {
+  '& .MuiOutlinedInput-root': {
+    borderRadius: radius.xs,
+    backgroundColor: '#14141a',
+    color: '#ffffff',
+    '& fieldset': {
+      borderColor: 'rgba(255,255,255,0.2)',
+    },
+    '&:hover fieldset': {
+      borderColor: 'rgba(255,255,255,0.35)',
+    },
+    '&.Mui-focused fieldset': {
+      borderColor: brand.primary.main,
+    },
+    '&.Mui-disabled': {
+      backgroundColor: 'rgba(20,20,25,0.7)',
+      '& fieldset': {
+        borderColor: 'rgba(255,255,255,0.1)',
+      },
+    },
+  },
+  '& .MuiInputLabel-root': {
+    color: 'rgba(255,255,255,0.7)',
+    '&.Mui-focused': {
+      color: brand.primary.light,
+    },
+    '&.MuiInputLabel-shrink': {
+      color: 'rgba(255,255,255,0.9)',
+      backgroundColor: 'transparent',
+    },
+    '&.Mui-disabled': {
+      color: 'rgba(255,255,255,0.5)',
+    },
+  },
+  '& .MuiInputBase-input': {
+    color: '#ffffff',
+    '&::placeholder': {
+      color: 'rgba(255,255,255,0.5)',
+      opacity: 1,
+    },
+    '&.Mui-disabled': {
+      color: 'rgba(255,255,255,0.5)',
+      WebkitTextFillColor: 'rgba(255,255,255,0.5)',
+    },
+    '&:-webkit-autofill, &:-webkit-autofill:hover, &:-webkit-autofill:focus, &:-webkit-autofill:active': {
+      WebkitBoxShadow: '0 0 0 100px #14141a inset !important',
+      WebkitTextFillColor: '#ffffff !important',
+    },
+  },
+  '& .MuiFormHelperText-root': {
+    color: 'rgba(255,255,255,0.6)',
+  },
+};
+
+const darkSelectStyles = {
+  borderRadius: radius.xs,
+  backgroundColor: '#14141a',
+  color: '#ffffff',
+  '& .MuiOutlinedInput-notchedOutline': {
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  '&:hover .MuiOutlinedInput-notchedOutline': {
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+    borderColor: brand.primary.main,
+  },
+  '& .MuiSelect-icon': {
+    color: 'rgba(255,255,255,0.7)',
+  },
+};
+
+const selectMenuProps = {
+  PaperProps: {
+    sx: {
+      backgroundColor: backgrounds.dark.elevated,
+      border: `1px solid rgba(255,255,255,0.15)`,
+      '& .MuiMenuItem-root': {
+        color: text.dark.primary,
+        '&:hover': {
+          backgroundColor: 'rgba(255,255,255,0.08)',
+        },
+        '&.Mui-selected': {
+          backgroundColor: 'rgba(99,102,241,0.25)',
+        },
+      },
+    },
+  },
+};
+
+// Page wrapper styles
+const pageStyles = {
+  minHeight: '100vh',
+  background: backgrounds.dark.primary,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  py: 4,
+};
+
+const cardStyles = {
+  backgroundColor: backgrounds.dark.card,
+  backdropFilter: 'blur(20px)',
+  border: `1px solid ${borders.dark.light}`,
+  borderRadius: radius.sm,
+};
 
 const Join: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -227,315 +336,408 @@ const Join: React.FC = () => {
 
   if (loading) {
     return (
-      <Container maxWidth="sm" sx={{ py: 8 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-          <CircularProgress />
-        </Box>
-      </Container>
+      <Box sx={pageStyles}>
+        <Container maxWidth="sm">
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+            <CircularProgress sx={{ color: brand.primary.main }} />
+          </Box>
+        </Container>
+      </Box>
     );
   }
 
   if (error || !invitation) {
     return (
-      <Container maxWidth="sm" sx={{ py: 8 }}>
-        <Card>
-          <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <ErrorIcon color="error" sx={{ fontSize: 64, mb: 2 }} />
-            <Typography variant="h5" gutterBottom>
-              Invalid Invitation
-            </Typography>
-            <Typography color="text.secondary" sx={{ mb: 3 }}>
-              {error || 'This invitation link is not valid.'}
-            </Typography>
-            <Button variant="contained" onClick={() => navigate('/login')}>
-              Go to Login
-            </Button>
-          </CardContent>
-        </Card>
-      </Container>
+      <Box sx={pageStyles}>
+        <Container maxWidth="sm">
+          <Card sx={cardStyles}>
+            <CardContent sx={{ textAlign: 'center', py: 6 }}>
+              <ErrorIcon sx={{ fontSize: 64, mb: 2, color: '#ef5350' }} />
+              <Typography variant="h5" gutterBottom sx={{ color: text.dark.primary }}>
+                Invalid Invitation
+              </Typography>
+              <Typography sx={{ mb: 3, color: text.dark.secondary }}>
+                {error || 'This invitation link is not valid.'}
+              </Typography>
+              <Button
+                variant="contained"
+                onClick={() => navigate('/login')}
+                sx={{
+                  background: gradients.primary,
+                  '&:hover': {
+                    background: gradients.primaryHover,
+                  },
+                }}
+              >
+                Go to Login
+              </Button>
+            </CardContent>
+          </Card>
+        </Container>
+      </Box>
     );
   }
 
   if (invitation.isExpired) {
     return (
-      <Container maxWidth="sm" sx={{ py: 8 }}>
-        <Card>
-          <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <ErrorIcon color="warning" sx={{ fontSize: 64, mb: 2 }} />
-            <Typography variant="h5" gutterBottom>
-              Invitation Expired
-            </Typography>
-            <Typography color="text.secondary" sx={{ mb: 3 }}>
-              This invitation expired on {new Date(invitation.expiresAt).toLocaleDateString()}.
-              Please contact the organization administrator for a new invitation.
-            </Typography>
-            <Button variant="contained" onClick={() => navigate('/login')}>
-              Go to Login
-            </Button>
-          </CardContent>
-        </Card>
-      </Container>
+      <Box sx={pageStyles}>
+        <Container maxWidth="sm">
+          <Card sx={cardStyles}>
+            <CardContent sx={{ textAlign: 'center', py: 6 }}>
+              <ErrorIcon sx={{ fontSize: 64, mb: 2, color: '#ffa726' }} />
+              <Typography variant="h5" gutterBottom sx={{ color: text.dark.primary }}>
+                Invitation Expired
+              </Typography>
+              <Typography sx={{ mb: 3, color: text.dark.secondary }}>
+                This invitation expired on {new Date(invitation.expiresAt).toLocaleDateString()}.
+                Please contact the organization administrator for a new invitation.
+              </Typography>
+              <Button
+                variant="contained"
+                onClick={() => navigate('/login')}
+                sx={{
+                  background: gradients.primary,
+                  '&:hover': {
+                    background: gradients.primaryHover,
+                  },
+                }}
+              >
+                Go to Login
+              </Button>
+            </CardContent>
+          </Card>
+        </Container>
+      </Box>
     );
   }
 
   if (invitation.isAccepted) {
     return (
-      <Container maxWidth="sm" sx={{ py: 8 }}>
-        <Card>
-          <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <CheckCircleIcon color="success" sx={{ fontSize: 64, mb: 2 }} />
-            <Typography variant="h5" gutterBottom>
-              Already Accepted
-            </Typography>
-            <Typography color="text.secondary" sx={{ mb: 3 }}>
-              This invitation has already been accepted. Please log in to access the organization.
-            </Typography>
-            <Button variant="contained" onClick={() => navigate('/login')}>
-              Go to Login
-            </Button>
-          </CardContent>
-        </Card>
-      </Container>
+      <Box sx={pageStyles}>
+        <Container maxWidth="sm">
+          <Card sx={cardStyles}>
+            <CardContent sx={{ textAlign: 'center', py: 6 }}>
+              <CheckCircleIcon sx={{ fontSize: 64, mb: 2, color: '#4caf50' }} />
+              <Typography variant="h5" gutterBottom sx={{ color: text.dark.primary }}>
+                Already Accepted
+              </Typography>
+              <Typography sx={{ mb: 3, color: text.dark.secondary }}>
+                This invitation has already been accepted. Please log in to access the organization.
+              </Typography>
+              <Button
+                variant="contained"
+                onClick={() => navigate('/login')}
+                sx={{
+                  background: gradients.primary,
+                  '&:hover': {
+                    background: gradients.primaryHover,
+                  },
+                }}
+              >
+                Go to Login
+              </Button>
+            </CardContent>
+          </Card>
+        </Container>
+      </Box>
     );
   }
 
   // Logged in user - show accept button
   if (isLoggedIn) {
     return (
-      <Container maxWidth="sm" sx={{ py: 8 }}>
-        <Card>
+      <Box sx={pageStyles}>
+        <Container maxWidth="sm">
+          <Card sx={cardStyles}>
+            <CardContent sx={{ py: 4 }}>
+              <Box sx={{ textAlign: 'center', mb: 4 }}>
+                <CheckCircleIcon sx={{ fontSize: 64, mb: 2, color: brand.primary.main }} />
+                <Typography variant="h4" gutterBottom sx={{ color: text.dark.primary }}>
+                  You're Invited!
+                </Typography>
+              </Box>
+
+              <Alert
+                severity="info"
+                sx={{
+                  mb: 3,
+                  backgroundColor: 'rgba(99,102,241,0.15)',
+                  color: text.dark.primary,
+                  border: `1px solid ${brand.primary.main}`,
+                  '& .MuiAlert-icon': {
+                    color: brand.primary.main,
+                  },
+                }}
+              >
+                <Typography variant="body2">
+                  <strong>{invitation.organizationName}</strong> has invited you to join as a{' '}
+                  <strong>{invitation.role}</strong>.
+                </Typography>
+              </Alert>
+
+              <Box sx={{
+                bgcolor: 'rgba(255,255,255,0.05)',
+                p: 2,
+                borderRadius: radius.xs,
+                mb: 3,
+                border: `1px solid ${borders.dark.light}`,
+              }}>
+                <Typography variant="body2" sx={{ color: text.dark.secondary }} gutterBottom>
+                  Email
+                </Typography>
+                <Typography variant="body1" sx={{ color: text.dark.primary }} gutterBottom>
+                  {invitation.email}
+                </Typography>
+
+                <Typography variant="body2" sx={{ color: text.dark.secondary, mt: 2 }} gutterBottom>
+                  Role
+                </Typography>
+                <Typography variant="body1" sx={{ color: text.dark.primary }}>
+                  {invitation.role.charAt(0).toUpperCase() + invitation.role.slice(1)}
+                </Typography>
+              </Box>
+
+              <Button
+                fullWidth
+                variant="contained"
+                size="large"
+                onClick={handleAcceptInvitation}
+                disabled={isSubmitting}
+                startIcon={isSubmitting ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : null}
+                sx={{
+                  background: gradients.primary,
+                  '&:hover': {
+                    background: gradients.primaryHover,
+                  },
+                }}
+              >
+                {isSubmitting ? 'Accepting...' : 'Accept Invitation'}
+              </Button>
+
+              <Box sx={{ mt: 2, textAlign: 'center' }}>
+                <Typography variant="body2" sx={{ color: text.dark.secondary }}>
+                  Not you?{' '}
+                  <Link
+                    component="button"
+                    onClick={() => {
+                      localStorage.removeItem('authToken');
+                      localStorage.removeItem('userRole');
+                      window.location.reload();
+                    }}
+                    sx={{ color: brand.primary.light }}
+                  >
+                    Log out
+                  </Link>
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Container>
+      </Box>
+    );
+  }
+
+  // Not logged in - show signup form
+  return (
+    <Box sx={pageStyles}>
+      <Container maxWidth="sm">
+        <Card sx={cardStyles}>
           <CardContent sx={{ py: 4 }}>
             <Box sx={{ textAlign: 'center', mb: 4 }}>
-              <CheckCircleIcon color="primary" sx={{ fontSize: 64, mb: 2 }} />
-              <Typography variant="h4" gutterBottom>
-                You're Invited!
+              <CheckCircleIcon sx={{ fontSize: 64, mb: 2, color: brand.primary.main }} />
+              <Typography variant="h4" gutterBottom sx={{ color: text.dark.primary }}>
+                Join {invitation.organizationName}
+              </Typography>
+              <Typography sx={{ color: text.dark.secondary }}>
+                Create your account to accept the invitation
               </Typography>
             </Box>
 
-            <Alert severity="info" sx={{ mb: 3 }}>
+            <Alert
+              severity="info"
+              sx={{
+                mb: 3,
+                backgroundColor: 'rgba(99,102,241,0.15)',
+                color: text.dark.primary,
+                border: `1px solid ${brand.primary.main}`,
+                '& .MuiAlert-icon': {
+                  color: brand.primary.main,
+                },
+              }}
+            >
               <Typography variant="body2">
-                <strong>{invitation.organizationName}</strong> has invited you to join as a{' '}
-                <strong>{invitation.role}</strong>.
+                You've been invited to join as a <strong>{invitation.role}</strong>.
               </Typography>
             </Alert>
 
-            <Box sx={{ bgcolor: 'background.default', p: 2, borderRadius: 1, mb: 3 }}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Email
-              </Typography>
-              <Typography variant="body1" gutterBottom>
-                {invitation.email}
-              </Typography>
+            <form onSubmit={handleSignup}>
+              <TextField
+                fullWidth
+                label={t('auth.email')}
+                value={invitation.email}
+                disabled
+                sx={{ ...darkInputStyles, mb: 2 }}
+              />
 
-              <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mt: 2 }}>
-                Role
-              </Typography>
-              <Typography variant="body1">
-                {invitation.role.charAt(0).toUpperCase() + invitation.role.slice(1)}
-              </Typography>
-            </Box>
+              <TextField
+                fullWidth
+                label={t('auth.name')}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={isSubmitting}
+                required
+                sx={{ ...darkInputStyles, mb: 2 }}
+              />
 
-            <Button
-              fullWidth
-              variant="contained"
-              size="large"
-              onClick={handleAcceptInvitation}
-              disabled={isSubmitting}
-              startIcon={isSubmitting ? <CircularProgress size={20} /> : null}
-            >
-              {isSubmitting ? 'Accepting...' : 'Accept Invitation'}
-            </Button>
+              {/* Player-specific fields */}
+              {invitation.role === 'player' && (
+                <>
+                  <TextField
+                    fullWidth
+                    label={t('auth.birthDate')}
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    disabled={isSubmitting}
+                    required
+                    InputLabelProps={{ shrink: true }}
+                    inputProps={{
+                      max: new Date().toISOString().split('T')[0],
+                      min: new Date(new Date().setFullYear(new Date().getFullYear() - 100)).toISOString().split('T')[0]
+                    }}
+                    sx={{ ...darkInputStyles, mb: 2 }}
+                  />
 
-            <Box sx={{ mt: 2, textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
-                Not you?{' '}
+                  <FormControl required fullWidth sx={{ mb: 2 }}>
+                    <InputLabel sx={{
+                      color: 'rgba(255,255,255,0.7)',
+                      '&.Mui-focused': { color: brand.primary.light }
+                    }}>
+                      {t('auth.gender')}
+                    </InputLabel>
+                    <Select
+                      value={sex}
+                      label={t('auth.gender')}
+                      onChange={(e) => setSex(e.target.value as 'male' | 'female')}
+                      disabled={isSubmitting}
+                      sx={darkSelectStyles}
+                      MenuProps={selectMenuProps}
+                    >
+                      <MenuItem value="male">{t('auth.male')}</MenuItem>
+                      <MenuItem value="female">{t('auth.female')}</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
+                    <TextField
+                      label={t('auth.weightKg')}
+                      type="number"
+                      value={weightKg}
+                      onChange={(e) => setWeightKg(e.target.value ? Number(e.target.value) : '')}
+                      disabled={isSubmitting}
+                      required
+                      inputProps={{ min: 50, max: 200 }}
+                      sx={darkInputStyles}
+                    />
+
+                    <TextField
+                      label={t('auth.heightCm')}
+                      type="number"
+                      value={heightCm}
+                      onChange={(e) => setHeightCm(e.target.value ? Number(e.target.value) : '')}
+                      disabled={isSubmitting}
+                      required
+                      inputProps={{ min: 150, max: 220 }}
+                      sx={darkInputStyles}
+                    />
+                  </Box>
+                </>
+              )}
+
+              <TextField
+                fullWidth
+                type={showPassword ? 'text' : 'password'}
+                label={t('auth.password')}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isSubmitting}
+                required
+                helperText={t('auth.passwordMinLength')}
+                sx={{ ...darkInputStyles, mb: 2 }}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                        disabled={isSubmitting}
+                        sx={{ color: 'rgba(255,255,255,0.7)' }}
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
+              <TextField
+                fullWidth
+                type={showConfirmPassword ? 'text' : 'password'}
+                label={t('auth.confirmPassword')}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={isSubmitting}
+                required
+                sx={{ ...darkInputStyles, mb: 3 }}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        edge="end"
+                        disabled={isSubmitting}
+                        sx={{ color: 'rgba(255,255,255,0.7)' }}
+                      >
+                        {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
+              <Button
+                fullWidth
+                type="submit"
+                variant="contained"
+                size="large"
+                disabled={isSubmitting}
+                startIcon={isSubmitting ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : null}
+                sx={{
+                  background: gradients.primary,
+                  '&:hover': {
+                    background: gradients.primaryHover,
+                  },
+                }}
+              >
+                {isSubmitting ? 'Creating Account...' : 'Create Account & Join'}
+              </Button>
+            </form>
+
+            <Box sx={{ mt: 3, textAlign: 'center' }}>
+              <Typography variant="body2" sx={{ color: text.dark.secondary }}>
+                Already have an account?{' '}
                 <Link
-                  component="button"
-                  onClick={() => {
-                    localStorage.removeItem('authToken');
-                    localStorage.removeItem('userRole');
-                    window.location.reload();
-                  }}
+                  onClick={() => navigate(`/login?redirect=/join?token=${token}`)}
+                  sx={{ color: brand.primary.light, cursor: 'pointer' }}
                 >
-                  Log out
+                  Log in
                 </Link>
               </Typography>
             </Box>
           </CardContent>
         </Card>
       </Container>
-    );
-  }
-
-  // Not logged in - show signup form
-  return (
-    <Container maxWidth="sm" sx={{ py: 8 }}>
-      <Card>
-        <CardContent sx={{ py: 4 }}>
-          <Box sx={{ textAlign: 'center', mb: 4 }}>
-            <CheckCircleIcon color="primary" sx={{ fontSize: 64, mb: 2 }} />
-            <Typography variant="h4" gutterBottom>
-              Join {invitation.organizationName}
-            </Typography>
-            <Typography color="text.secondary">
-              Create your account to accept the invitation
-            </Typography>
-          </Box>
-
-          <Alert severity="info" sx={{ mb: 3 }}>
-            <Typography variant="body2">
-              You've been invited to join as a <strong>{invitation.role}</strong>.
-            </Typography>
-          </Alert>
-
-          <form onSubmit={handleSignup}>
-            <TextField
-              fullWidth
-              label={t('auth.email')}
-              value={invitation.email}
-              disabled
-              sx={{ mb: 2 }}
-            />
-
-            <TextField
-              fullWidth
-              label={t('auth.name')}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={isSubmitting}
-              required
-              sx={{ mb: 2 }}
-            />
-
-            {/* Player-specific fields */}
-            {invitation.role === 'player' && (
-              <>
-                {/* Note: Position and jersey number are assigned by coaches via team member management */}
-                <TextField
-                  fullWidth
-                  label={t('auth.birthDate')}
-                  type="date"
-                  value={birthDate}
-                  onChange={(e) => setBirthDate(e.target.value)}
-                  disabled={isSubmitting}
-                  required
-                  InputLabelProps={{ shrink: true }}
-                  inputProps={{
-                    max: new Date().toISOString().split('T')[0],
-                    min: new Date(new Date().setFullYear(new Date().getFullYear() - 100)).toISOString().split('T')[0]
-                  }}
-                  sx={{ mb: 2 }}
-                />
-
-                <FormControl required fullWidth sx={{ mb: 2 }}>
-                  <InputLabel>{t('auth.gender')}</InputLabel>
-                  <Select
-                    value={sex}
-                    label={t('auth.gender')}
-                    onChange={(e) => setSex(e.target.value as 'male' | 'female')}
-                    disabled={isSubmitting}
-                  >
-                    <MenuItem value="male">{t('auth.male')}</MenuItem>
-                    <MenuItem value="female">{t('auth.female')}</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
-                  <TextField
-                    label={t('auth.weightKg')}
-                    type="number"
-                    value={weightKg}
-                    onChange={(e) => setWeightKg(e.target.value ? Number(e.target.value) : '')}
-                    disabled={isSubmitting}
-                    required
-                    inputProps={{ min: 50, max: 200 }}
-                  />
-
-                  <TextField
-                    label={t('auth.heightCm')}
-                    type="number"
-                    value={heightCm}
-                    onChange={(e) => setHeightCm(e.target.value ? Number(e.target.value) : '')}
-                    disabled={isSubmitting}
-                    required
-                    inputProps={{ min: 150, max: 220 }}
-                  />
-                </Box>
-              </>
-            )}
-
-            <TextField
-              fullWidth
-              type={showPassword ? 'text' : 'password'}
-              label={t('auth.password')}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={isSubmitting}
-              required
-              helperText={t('auth.passwordMinLength')}
-              sx={{ mb: 2 }}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                      disabled={isSubmitting}
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            <TextField
-              fullWidth
-              type={showConfirmPassword ? 'text' : 'password'}
-              label={t('auth.confirmPassword')}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              disabled={isSubmitting}
-              required
-              sx={{ mb: 3 }}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      edge="end"
-                      disabled={isSubmitting}
-                    >
-                      {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            <Button
-              fullWidth
-              type="submit"
-              variant="contained"
-              size="large"
-              disabled={isSubmitting}
-              startIcon={isSubmitting ? <CircularProgress size={20} /> : null}
-            >
-              {isSubmitting ? 'Creating Account...' : 'Create Account & Join'}
-            </Button>
-          </form>
-
-          <Box sx={{ mt: 3, textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              Already have an account?{' '}
-              <Link onClick={() => navigate(`/login?redirect=/join?token=${token}`)}>
-                Log in
-              </Link>
-            </Typography>
-          </Box>
-        </CardContent>
-      </Card>
-    </Container>
+    </Box>
   );
 };
 

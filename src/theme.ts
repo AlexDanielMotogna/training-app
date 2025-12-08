@@ -97,7 +97,7 @@ const baseThemeOptions: ThemeOptions = {
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: radius.md,
+          borderRadius: radius.sm,
           padding: '10px 24px',
           transition: 'all 0.2s ease',
         },
@@ -106,7 +106,7 @@ const baseThemeOptions: ThemeOptions = {
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: radius.lg,
+          borderRadius: radius.sm,
           boxShadow: shadows.card,
         },
       },
@@ -115,7 +115,7 @@ const baseThemeOptions: ThemeOptions = {
       styleOverrides: {
         root: {
           '& .MuiOutlinedInput-root': {
-            borderRadius: radius.md,
+            borderRadius: radius.xs,
           },
         },
       },
@@ -189,7 +189,7 @@ export function createDarkTheme(): ReturnType<typeof createTheme> {
       MuiCard: {
         styleOverrides: {
           root: {
-            borderRadius: radius.lg,
+            borderRadius: radius.sm,
             backgroundColor: backgrounds.dark.card,
             border: '1px solid rgba(255,255,255,0.1)',
           },
@@ -198,7 +198,7 @@ export function createDarkTheme(): ReturnType<typeof createTheme> {
       MuiButton: {
         styleOverrides: {
           root: {
-            borderRadius: radius.md,
+            borderRadius: radius.sm,
             padding: '10px 24px',
             transition: 'all 0.2s ease',
           },
@@ -221,13 +221,13 @@ export function createDarkTheme(): ReturnType<typeof createTheme> {
         styleOverrides: {
           root: {
             '& .MuiOutlinedInput-root': {
-              borderRadius: radius.md,
-              backgroundColor: 'rgba(255,255,255,0.05)',
+              borderRadius: radius.xs,
+              backgroundColor: '#14141a',
               '& fieldset': {
-                borderColor: 'rgba(255,255,255,0.1)',
+                borderColor: 'rgba(255,255,255,0.2)',
               },
               '&:hover fieldset': {
-                borderColor: 'rgba(255,255,255,0.2)',
+                borderColor: 'rgba(255,255,255,0.35)',
               },
               '&.Mui-focused fieldset': {
                 borderColor: brand.primary.main,
@@ -235,17 +235,73 @@ export function createDarkTheme(): ReturnType<typeof createTheme> {
             },
             '& .MuiInputLabel-root': {
               color: 'rgba(255,255,255,0.7)',
+              '&.Mui-focused': {
+                color: brand.primary.light,
+              },
+              '&.MuiInputLabel-shrink': {
+                color: 'rgba(255,255,255,0.9)',
+              },
             },
             '& .MuiInputBase-input': {
               color: '#ffffff',
+              '&::placeholder': {
+                color: 'rgba(255,255,255,0.5)',
+                opacity: 1,
+              },
+              '&:-webkit-autofill, &:-webkit-autofill:hover, &:-webkit-autofill:focus, &:-webkit-autofill:active': {
+                WebkitBoxShadow: '0 0 0 100px #14141a inset !important',
+                WebkitTextFillColor: '#ffffff !important',
+              },
+            },
+            '& .MuiFormHelperText-root': {
+              color: 'rgba(255,255,255,0.6)',
             },
           },
         },
       },
       MuiSelect: {
         styleOverrides: {
+          root: {
+            borderRadius: radius.xs,
+          },
           outlined: {
-            backgroundColor: 'rgba(255,255,255,0.05)',
+            backgroundColor: 'rgba(20,20,25,0.8)',
+          },
+        },
+      },
+      MuiInputLabel: {
+        styleOverrides: {
+          root: {
+            color: 'rgba(255,255,255,0.7)',
+            '&.Mui-focused': {
+              color: brand.primary.light,
+            },
+            '&.MuiInputLabel-shrink': {
+              color: 'rgba(255,255,255,0.9)',
+            },
+          },
+        },
+      },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            borderRadius: radius.xs,
+            backgroundColor: '#14141a',
+            '& .MuiOutlinedInput-notchedOutline': {
+              borderColor: 'rgba(255,255,255,0.2)',
+            },
+            '&:hover .MuiOutlinedInput-notchedOutline': {
+              borderColor: 'rgba(255,255,255,0.35)',
+            },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+              borderColor: brand.primary.main,
+            },
+          },
+          input: {
+            '&:-webkit-autofill, &:-webkit-autofill:hover, &:-webkit-autofill:focus, &:-webkit-autofill:active': {
+              WebkitBoxShadow: '0 0 0 100px #14141a inset !important',
+              WebkitTextFillColor: '#ffffff !important',
+            },
           },
         },
       },

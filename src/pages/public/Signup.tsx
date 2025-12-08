@@ -73,48 +73,60 @@ const TIMEZONES = [
 // Dark input styles matching the Landing page
 const darkInputStyles = {
   '& .MuiOutlinedInput-root': {
-    borderRadius: radius.sm,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: radius.xs,
+    backgroundColor: '#14141a',
     color: '#ffffff',
     '& fieldset': {
-      borderColor: borders.dark.light,
+      borderColor: 'rgba(255,255,255,0.2)',
     },
     '&:hover fieldset': {
-      borderColor: borders.dark.medium,
+      borderColor: 'rgba(255,255,255,0.35)',
     },
     '&.Mui-focused fieldset': {
       borderColor: brand.primary.main,
     },
   },
   '& .MuiInputLabel-root': {
-    color: text.dark.secondary,
+    color: 'rgba(255,255,255,0.7)',
     '&.Mui-focused': {
-      color: brand.primary.main,
+      color: brand.primary.light,
+    },
+    '&.MuiInputLabel-shrink': {
+      color: 'rgba(255,255,255,0.9)',
+      backgroundColor: 'transparent',
     },
   },
   '& .MuiInputBase-input': {
     color: '#ffffff',
+    '&::placeholder': {
+      color: 'rgba(255,255,255,0.5)',
+      opacity: 1,
+    },
+    '&:-webkit-autofill, &:-webkit-autofill:hover, &:-webkit-autofill:focus, &:-webkit-autofill:active': {
+      WebkitBoxShadow: '0 0 0 100px #14141a inset !important',
+      WebkitTextFillColor: '#ffffff !important',
+    },
   },
   '& .MuiFormHelperText-root': {
-    color: text.dark.muted,
+    color: 'rgba(255,255,255,0.6)',
   },
 };
 
 const darkSelectStyles = {
-  borderRadius: radius.sm,
-  backgroundColor: 'rgba(255,255,255,0.05)',
+  borderRadius: radius.xs,
+  backgroundColor: '#14141a',
   color: '#ffffff',
   '& .MuiOutlinedInput-notchedOutline': {
-    borderColor: borders.dark.light,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   '&:hover .MuiOutlinedInput-notchedOutline': {
-    borderColor: borders.dark.medium,
+    borderColor: 'rgba(255,255,255,0.35)',
   },
   '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
     borderColor: brand.primary.main,
   },
   '& .MuiSelect-icon': {
-    color: text.dark.secondary,
+    color: 'rgba(255,255,255,0.7)',
   },
 };
 
@@ -122,14 +134,14 @@ const selectMenuProps = {
   PaperProps: {
     sx: {
       backgroundColor: backgrounds.dark.elevated,
-      border: `1px solid ${borders.dark.light}`,
+      border: `1px solid rgba(255,255,255,0.15)`,
       '& .MuiMenuItem-root': {
         color: text.dark.primary,
         '&:hover': {
-          backgroundColor: 'rgba(255,255,255,0.05)',
+          backgroundColor: 'rgba(255,255,255,0.08)',
         },
         '&.Mui-selected': {
-          backgroundColor: 'rgba(99,102,241,0.2)',
+          backgroundColor: 'rgba(99,102,241,0.25)',
         },
       },
     },
@@ -145,6 +157,7 @@ export const Signup: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [sports, setSports] = useState<Sport[]>([]);
   const [ageCategories, setAgeCategories] = useState<{
     id: string;
@@ -430,11 +443,15 @@ export const Signup: React.FC = () => {
               startIcon={<GoogleIcon />}
               sx={{
                 mb: 2,
-                borderColor: borders.dark.light,
-                color: text.dark.primary,
+                borderColor: 'rgba(255,255,255,0.3)',
+                color: 'rgba(255,255,255,0.9)',
                 '&:hover': {
-                  borderColor: borders.dark.medium,
-                  backgroundColor: 'rgba(255,255,255,0.05)',
+                  borderColor: 'rgba(255,255,255,0.5)',
+                  backgroundColor: 'rgba(255,255,255,0.08)',
+                },
+                '&.Mui-disabled': {
+                  borderColor: 'rgba(255,255,255,0.2)',
+                  color: 'rgba(255,255,255,0.5)',
                 },
               }}
               disabled
@@ -443,7 +460,7 @@ export const Signup: React.FC = () => {
             </Button>
 
             <Divider sx={{ my: 3, borderColor: borders.dark.light }}>
-              <Typography variant="body2" sx={{ color: text.dark.muted }}>
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>
                 {t('signup.orEmail')}
               </Typography>
             </Divider>
@@ -509,12 +526,25 @@ export const Signup: React.FC = () => {
               <Grid item xs={12}>
                 <TextField
                   label={t('signup.confirmPassword')}
-                  type={showPassword ? 'text' : 'password'}
+                  type={showConfirmPassword ? 'text' : 'password'}
                   value={formData.confirmPassword}
                   onChange={handleChange('confirmPassword')}
                   fullWidth
                   required
                   sx={darkInputStyles}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          edge="end"
+                          sx={{ color: text.dark.secondary }}
+                        >
+                          {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                 />
               </Grid>
             </Grid>
@@ -546,7 +576,7 @@ export const Signup: React.FC = () => {
               </Grid>
               <Grid item xs={12}>
                 <FormControl fullWidth required>
-                  <InputLabel sx={{ color: text.dark.secondary, '&.Mui-focused': { color: brand.primary.main } }}>
+                  <InputLabel sx={{ color: 'rgba(255,255,255,0.8)', '&.Mui-focused': { color: brand.primary.light } }}>
                     {t('signup.sport')}
                   </InputLabel>
                   <Select
@@ -563,12 +593,12 @@ export const Signup: React.FC = () => {
                       </MenuItem>
                     ))}
                   </Select>
-                  <FormHelperText sx={{ color: text.dark.muted }}>{t('signup.sportHint')}</FormHelperText>
+                  <FormHelperText sx={{ color: 'rgba(255,255,255,0.6)' }}>{t('signup.sportHint')}</FormHelperText>
                 </FormControl>
               </Grid>
               <Grid item xs={12}>
                 <FormControl fullWidth>
-                  <InputLabel sx={{ color: text.dark.secondary, '&.Mui-focused': { color: brand.primary.main } }}>
+                  <InputLabel sx={{ color: 'rgba(255,255,255,0.8)', '&.Mui-focused': { color: brand.primary.light } }}>
                     {t('signup.timezone')}
                   </InputLabel>
                   <Select
@@ -640,7 +670,7 @@ export const Signup: React.FC = () => {
               </Grid>
               <Grid item xs={12}>
                 <FormControl fullWidth required disabled={!formData.sportId}>
-                  <InputLabel sx={{ color: text.dark.secondary, '&.Mui-focused': { color: brand.primary.main } }}>
+                  <InputLabel sx={{ color: 'rgba(255,255,255,0.8)', '&.Mui-focused': { color: brand.primary.light } }}>
                     {t('signup.ageCategory')}
                   </InputLabel>
                   <Select
@@ -663,7 +693,7 @@ export const Signup: React.FC = () => {
               </Grid>
               <Grid item xs={12}>
                 <FormControl fullWidth>
-                  <InputLabel sx={{ color: text.dark.secondary, '&.Mui-focused': { color: brand.primary.main } }}>
+                  <InputLabel sx={{ color: 'rgba(255,255,255,0.8)', '&.Mui-focused': { color: brand.primary.light } }}>
                     {t('signup.yourRole')}
                   </InputLabel>
                   <Select
@@ -676,7 +706,7 @@ export const Signup: React.FC = () => {
                     <MenuItem value="owner">{t('signup.roleOwner')}</MenuItem>
                     <MenuItem value="head_coach">{t('signup.roleHeadCoach')}</MenuItem>
                   </Select>
-                  <FormHelperText sx={{ color: text.dark.muted }}>{t('signup.roleHint')}</FormHelperText>
+                  <FormHelperText sx={{ color: 'rgba(255,255,255,0.6)' }}>{t('signup.roleHint')}</FormHelperText>
                 </FormControl>
               </Grid>
             </Grid>
@@ -831,7 +861,7 @@ export const Signup: React.FC = () => {
             backgroundColor: backgrounds.dark.card,
             backdropFilter: 'blur(20px)',
             border: `1px solid ${borders.dark.light}`,
-            borderRadius: radius.md,
+            borderRadius: radius.sm,
           }}
         >
           <CardContent sx={{ p: 4 }}>

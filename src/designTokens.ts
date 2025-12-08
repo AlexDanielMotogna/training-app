@@ -147,10 +147,11 @@ export const transitions = {
 
 // Border Radius
 export const radius = {
+  xs: 2,
   sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 16,
+  md: 6,
+  lg: 8,
+  xl: 12,
   full: 9999,
 };
 

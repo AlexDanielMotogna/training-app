@@ -45,6 +45,8 @@ import StarIcon from '@mui/icons-material/Star';
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import { useI18n } from '../../i18n/I18nProvider';
 import { Footer } from '../../components/public/Footer';
+import { AnimatedHeroDemo } from '../../components/public/AnimatedHeroDemo';
+import { AnimatedFeatureCard, FeatureType } from '../../components/public/AnimatedFeatureCard';
 
 // Hero images from Unsplash (free to use)
 const HERO_IMAGES = [
@@ -54,42 +56,54 @@ const HERO_IMAGES = [
   'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=1920&q=80', // Football
 ];
 
-const FEATURES = [
+const FEATURES: {
+  icon: React.ElementType;
+  titleKey: string;
+  descKey: string;
+  color: string;
+  type: FeatureType;
+}[] = [
   {
     icon: AssignmentIcon,
     titleKey: 'landing.features.plans.title',
     descKey: 'landing.features.plans.desc',
     color: '#6366f1',
+    type: 'plans',
   },
   {
     icon: CalendarMonthIcon,
     titleKey: 'landing.features.schedule.title',
     descKey: 'landing.features.schedule.desc',
     color: '#f59e0b',
+    type: 'schedule',
   },
   {
     icon: AnalyticsIcon,
     titleKey: 'landing.features.analytics.title',
     descKey: 'landing.features.analytics.desc',
     color: '#10b981',
+    type: 'analytics',
   },
   {
     icon: GroupsIcon,
     titleKey: 'landing.features.team.title',
     descKey: 'landing.features.team.desc',
     color: '#ec4899',
+    type: 'team',
   },
   {
     icon: EmojiEventsIcon,
     titleKey: 'landing.features.leaderboard.title',
     descKey: 'landing.features.leaderboard.desc',
     color: '#8b5cf6',
+    type: 'leaderboard',
   },
   {
     icon: NotificationsActiveIcon,
     titleKey: 'landing.features.notifications.title',
     descKey: 'landing.features.notifications.desc',
     color: '#06b6d4',
+    type: 'notifications',
   },
 ];
 
@@ -613,198 +627,9 @@ export const Landing: React.FC = () => {
               </Box>
             </Grid>
 
-            {/* Dashboard Preview */}
+            {/* Animated Dashboard Demo */}
             <Grid item xs={12} lg={5} sx={{ display: { xs: 'none', lg: 'block' } }}>
-              <Box
-                sx={{
-                  position: 'relative',
-                  transform: 'perspective(1000px) rotateY(-10deg) rotateX(5deg)',
-                  '&:hover': {
-                    transform: 'perspective(1000px) rotateY(-5deg) rotateX(2deg)',
-                  },
-                  transition: 'transform 0.5s ease',
-                }}
-              >
-                <Box
-                  sx={{
-                    bgcolor: 'rgba(20,20,25,0.95)',
-                    borderRadius: 3,
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    overflow: 'hidden',
-                    boxShadow: '0 25px 80px rgba(0,0,0,0.5)',
-                  }}
-                >
-                  {/* App Header */}
-                  <Box
-                    sx={{
-                      px: 3,
-                      py: 2,
-                      bgcolor: 'rgba(255,255,255,0.03)',
-                      borderBottom: '1px solid rgba(255,255,255,0.1)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <Typography variant="h6" sx={{ color: 'white', fontWeight: 600 }}>
-                      My Training
-                    </Typography>
-                    <Chip
-                      label="Week 3"
-                      size="small"
-                      sx={{
-                        bgcolor: 'rgba(99,102,241,0.2)',
-                        color: '#a5b4fc',
-                        borderRadius: 1.5,
-                        fontWeight: 600,
-                      }}
-                    />
-                  </Box>
-
-                  {/* Workout Content */}
-                  <Box sx={{ p: 3 }}>
-                    {/* Compound Lifts Block */}
-                    <Box
-                      sx={{
-                        mb: 2.5,
-                        bgcolor: 'rgba(255,255,255,0.03)',
-                        borderRadius: 2,
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <Box sx={{ px: 2.5, py: 1.5, bgcolor: 'rgba(99,102,241,0.15)', borderBottom: '1px solid rgba(99,102,241,0.2)' }}>
-                        <Typography variant="body2" sx={{ color: '#a5b4fc', fontWeight: 600, fontSize: '0.8rem' }}>
-                          COMPOUND LIFTS
-                        </Typography>
-                      </Box>
-                      <Box sx={{ p: 2 }}>
-                        {[
-                          { name: 'Back Squat', sets: '4x5', weight: '140kg', complete: true },
-                          { name: 'Bench Press', sets: '4x5', weight: '100kg', complete: true },
-                          { name: 'Deadlift', sets: '3x5', weight: '160kg', complete: false },
-                        ].map((ex, i) => (
-                          <Box
-                            key={i}
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              py: 1.25,
-                              borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                              opacity: ex.complete ? 0.6 : 1,
-                            }}
-                          >
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                              <Box
-                                sx={{
-                                  width: 20,
-                                  height: 20,
-                                  borderRadius: '50%',
-                                  border: ex.complete ? 'none' : '2px solid rgba(255,255,255,0.3)',
-                                  bgcolor: ex.complete ? '#10b981' : 'transparent',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                }}
-                              >
-                                {ex.complete && (
-                                  <Box component="span" sx={{ color: 'white', fontSize: '0.75rem' }}>✓</Box>
-                                )}
-                              </Box>
-                              <Typography variant="body2" sx={{ color: 'white', fontWeight: 500 }}>
-                                {ex.name}
-                              </Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', gap: 2 }}>
-                              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                                {ex.sets}
-                              </Typography>
-                              <Typography variant="caption" sx={{ color: '#a5b4fc', fontWeight: 600 }}>
-                                {ex.weight}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        ))}
-                      </Box>
-                    </Box>
-
-                    {/* Accessory Work Block */}
-                    <Box
-                      sx={{
-                        bgcolor: 'rgba(255,255,255,0.03)',
-                        borderRadius: 2,
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <Box sx={{ px: 2.5, py: 1.5, bgcolor: 'rgba(236,72,153,0.15)', borderBottom: '1px solid rgba(236,72,153,0.2)' }}>
-                        <Typography variant="body2" sx={{ color: '#f9a8d4', fontWeight: 600, fontSize: '0.8rem' }}>
-                          ACCESSORY WORK
-                        </Typography>
-                      </Box>
-                      <Box sx={{ p: 2 }}>
-                        {[
-                          { name: 'Pull-ups', sets: '3x8' },
-                          { name: 'Dumbbell Rows', sets: '3x10' },
-                        ].map((ex, i) => (
-                          <Box
-                            key={i}
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              py: 1.25,
-                              borderBottom: i < 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                            }}
-                          >
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                              <Box
-                                sx={{
-                                  width: 20,
-                                  height: 20,
-                                  borderRadius: '50%',
-                                  border: '2px solid rgba(255,255,255,0.3)',
-                                }}
-                              />
-                              <Typography variant="body2" sx={{ color: 'white', fontWeight: 500 }}>
-                                {ex.name}
-                              </Typography>
-                            </Box>
-                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                              {ex.sets}
-                            </Typography>
-                          </Box>
-                        ))}
-                      </Box>
-                    </Box>
-                  </Box>
-                </Box>
-
-                {/* Floating Stats Card */}
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    bottom: -30,
-                    left: -30,
-                    bgcolor: 'white',
-                    borderRadius: 2,
-                    p: 2,
-                    boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-                    minWidth: 180,
-                  }}
-                >
-                  <Typography variant="caption" color="text.secondary">
-                    Weekly Progress
-                  </Typography>
-                  <Typography variant="h4" fontWeight={700} sx={{ color: '#10b981' }}>
-                    8/12
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    workouts completed
-                  </Typography>
-                </Box>
-              </Box>
+              <AnimatedHeroDemo />
             </Grid>
           </Grid>
         </Container>
@@ -1175,48 +1000,13 @@ export const Landing: React.FC = () => {
           <Grid container spacing={4}>
             {FEATURES.map((feature, index) => (
               <Grid item xs={12} sm={6} md={4} key={index}>
-                <Card
-                  sx={{
-                    height: '100%',
-                    bgcolor: 'transparent',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      transform: 'translateY(-8px)',
-                      borderColor: feature.color,
-                      boxShadow: `0 20px 40px ${alpha(feature.color, 0.2)}`,
-                      '& .feature-icon-box': {
-                        bgcolor: alpha(feature.color, 0.2),
-                        '& svg': { color: feature.color },
-                      },
-                    },
-                  }}
-                >
-                  <CardContent sx={{ p: 4 }}>
-                    <Box
-                      className="feature-icon-box"
-                      sx={{
-                        width: 60,
-                        height: 60,
-                        borderRadius: 2,
-                        bgcolor: 'rgba(255,255,255,0.1)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        mb: 3,
-                        transition: 'all 0.3s ease',
-                      }}
-                    >
-                      <feature.icon sx={{ fontSize: 28, color: 'grey.400', transition: 'all 0.3s ease' }} />
-                    </Box>
-                    <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5, color: 'white' }}>
-                      {t(feature.titleKey as any)}
-                    </Typography>
-                    <Typography variant="body2" color="grey.500" sx={{ lineHeight: 1.7 }}>
-                      {t(feature.descKey as any)}
-                    </Typography>
-                  </CardContent>
-                </Card>
+                <AnimatedFeatureCard
+                  type={feature.type}
+                  icon={feature.icon}
+                  title={t(feature.titleKey as any)}
+                  description={t(feature.descKey as any)}
+                  color={feature.color}
+                />
               </Grid>
             ))}
           </Grid>
