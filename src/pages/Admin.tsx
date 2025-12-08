@@ -53,7 +53,8 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import { useI18n } from '../i18n/I18nProvider';
-import type { Exercise, ExerciseCategory, Position, MuscleGroup } from '../types/exercise';
+import { useOrganization } from '../contexts/OrganizationContext';
+import type { Exercise, MuscleGroup } from '../types/exercise';
 import type { TrainingTemplate, TrainingAssignment } from '../types/trainingBuilder';
 // Note: TrainingTypes now loaded from backend via trainingTypeService
 import { getUser } from '../services/userProfile';
@@ -107,6 +108,16 @@ export const Admin: React.FC = () => {
   const [resourcesMenuOpen, setResourcesMenuOpen] = useState(false);
   const [systemMenuOpen, setSystemMenuOpen] = useState(false);
   const user = getUser();
+  const { organization } = useOrganization();
+
+  // Sport Positions State - dynamically loaded from organization's sport
+  interface SportPosition {
+    id: string;
+    abbreviation: string;
+    name: string;
+    group?: string;
+  }
+  const [sportPositions, setSportPositions] = useState<SportPosition[]>([]);
 
   // Exercise Management State
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -176,6 +187,68 @@ export const Admin: React.FC = () => {
       setTeamApiKey(settings.aiApiKey || '');
     };
     loadSettings();
+  }, []);
+
+  // Fetch sport positions from organization on mount
+  useEffect(() => {
+    const fetchSportPositions = async () => {
+      const token = localStorage.getItem('teamtrainer_token');
+      if (!token) {
+        console.log('[ADMIN] No auth token found');
+        return;
+      }
+
+      // Try to get organization ID from context, or decode from token
+      let orgId = organization?.id;
+      if (!orgId) {
+        try {
+          // Decode JWT to get organizationId
+          const base64Url = token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+            '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+          ).join(''));
+          const payload = JSON.parse(jsonPayload);
+          orgId = payload.organizationId;
+          console.log('[ADMIN] Got organizationId from token:', orgId);
+        } catch (e) {
+          console.error('[ADMIN] Failed to decode token:', e);
+        }
+      }
+
+      if (!orgId) {
+        console.log('[ADMIN] No organization ID available');
+        return;
+      }
+
+      try {
+        console.log('[ADMIN] Fetching organization details for:', orgId);
+        const response = await fetch(`/api/organizations/${orgId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const orgData = await response.json();
+          console.log('[ADMIN] Organization data received:', orgData.name, 'Sport:', orgData.sport?.name);
+          if (orgData.sport?.positions && Array.isArray(orgData.sport.positions)) {
+            setSportPositions(orgData.sport.positions);
+            console.log('[ADMIN] Loaded sport positions:', orgData.sport.positions.map((p: SportPosition) => p.abbreviation));
+          } else {
+            console.warn('[ADMIN] No positions found in sport data:', orgData.sport);
+          }
+        } else {
+          console.error('[ADMIN] Failed to fetch organization:', response.status, response.statusText);
+        }
+      } catch (error) {
+        console.error('[ADMIN] Error fetching sport positions:', error);
+      }
+    };
+
+    fetchSportPositions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Helper function to calculate end time
@@ -298,7 +371,7 @@ export const Admin: React.FC = () => {
   const [editingTemplate, setEditingTemplate] = useState<TrainingTemplate | null>(null);
   const [newTemplateData, setNewTemplateData] = useState<{
     trainingTypeId: string;
-    positions: Position[];
+    positions: string[];
     durationWeeks: number;
     frequencyPerWeek: string;
     weeklyNotes?: string;
@@ -314,7 +387,7 @@ export const Admin: React.FC = () => {
     }[];
   }>({
     trainingTypeId: '',
-    positions: ['RB'],
+    positions: [],
     durationWeeks: 8,
     frequencyPerWeek: '2-3',
     weeklyNotes: '',
@@ -751,7 +824,7 @@ export const Admin: React.FC = () => {
       setEditingTemplate(template);
       setNewTemplateData({
         trainingTypeId: template.trainingTypeId,
-        positions: template.positions || ['RB'],
+        positions: template.positions || [],
         durationWeeks: template.durationWeeks || 8,
         frequencyPerWeek: template.frequencyPerWeek || '2-3',
         weeklyNotes: template.weeklyNotes || '',
@@ -774,7 +847,7 @@ export const Admin: React.FC = () => {
       setEditingTemplate(null);
       setNewTemplateData({
         trainingTypeId: trainingTypes[0]?.id || '',
-        positions: ['RB'],
+        positions: [],
         durationWeeks: 8,
         frequencyPerWeek: '2-3',
         weeklyNotes: '',
@@ -1028,7 +1101,10 @@ export const Admin: React.FC = () => {
     }
   };
 
-  const positions: Position[] = ['RB', 'WR', 'LB', 'OL', 'DB', 'QB', 'DL', 'TE', 'K/P'];
+  // Dynamic positions from organization's sport (fallback to empty if not loaded)
+  const positions: string[] = sportPositions.length > 0
+    ? sportPositions.map(p => p.abbreviation)
+    : [];
 
   // Helper function to group blocks by session within a day
   const groupBlocksBySession = (blocks: typeof newTemplateData.blocks) => {
@@ -1110,8 +1186,8 @@ export const Admin: React.FC = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box
             component="img"
-            src={DEFAULT_LOGO}
-            alt="teamTraining Logo"
+            src={organization?.logoUrl || DEFAULT_LOGO}
+            alt={organization?.name ? `${organization.name} Logo` : "teamTraining Logo"}
             sx={{
               width: 50,
               height: 50,
@@ -2243,7 +2319,7 @@ export const Admin: React.FC = () => {
                 multiple
                 value={newTemplateData.positions}
                 label={t('admin.position')}
-                onChange={(e) => setNewTemplateData({ ...newTemplateData, positions: e.target.value as Position[] })}
+                onChange={(e) => setNewTemplateData({ ...newTemplateData, positions: e.target.value as string[] })}
                 renderValue={(selected) => (
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     {selected.map((value) => (

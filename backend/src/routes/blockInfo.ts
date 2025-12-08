@@ -2,8 +2,12 @@ import express from 'express';
 import { z } from 'zod';
 import prisma from '../utils/prisma.js';
 import { authenticate } from '../middleware/auth.js';
+import { requireTenant } from '../middleware/tenant.js';
 
 const router = express.Router();
+
+// Apply auth + require tenant to all routes (BlockInfo requires organization)
+router.use(authenticate, requireTenant);
 
 // Validation schema
 const blockInfoSchema = z.object({
@@ -13,10 +17,14 @@ const blockInfoSchema = z.object({
   infoText_de: z.string().min(1),
 });
 
-// GET /api/block-info - Get all block info
-router.get('/', authenticate, async (req, res) => {
+// GET /api/block-info - Get all block info for organization
+router.get('/', async (req, res) => {
   try {
+    // Only return block info for user's organization
     const blockInfo = await prisma.blockInfo.findMany({
+      where: {
+        organizationId: req.tenant!.organizationId,
+      },
       orderBy: { blockName: 'asc' },
     });
 
@@ -30,6 +38,7 @@ router.get('/', authenticate, async (req, res) => {
       trainingTypeKey: typeMap.get(info.trainingType) || info.trainingType,
     }));
 
+    console.log(`[BLOCK-INFO] Returning ${enrichedBlockInfo.length} block info for org ${req.tenant!.organizationId}`);
     res.json(enrichedBlockInfo);
   } catch (error) {
     console.error('Get block info error:', error);
@@ -38,7 +47,7 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // GET /api/block-info/:id - Get single block info
-router.get('/:id', authenticate, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -50,6 +59,11 @@ router.get('/:id', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Block info not found' });
     }
 
+    // Check tenant isolation
+    if (blockInfo.organizationId !== req.tenant!.organizationId) {
+      return res.status(403).json({ error: 'Access denied to this block info' });
+    }
+
     res.json(blockInfo);
   } catch (error) {
     console.error('Get block info error:', error);
@@ -58,18 +72,20 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // POST /api/block-info - Create new block info (Coach only)
-router.post('/', authenticate, async (req, res) => {
+router.post('/', async (req, res) => {
   try {
-    // Check if user is coach
-    if (req.user.role !== 'coach') {
+    // Check if user is coach (legacy role or org role)
+    const isCoach = req.user.role === 'coach' || req.tenant!.permissions.isCoach;
+    if (!isCoach) {
       return res.status(403).json({ error: 'Only coaches can create block info' });
     }
 
     const data = blockInfoSchema.parse(req.body);
 
-    // Check if block info already exists for this combination
+    // Check if block info already exists for this combination in this org
     const existing = await prisma.blockInfo.findFirst({
       where: {
+        organizationId: req.tenant!.organizationId,
         blockName: data.blockName,
         trainingType: data.trainingType,
       },
@@ -80,7 +96,10 @@ router.post('/', authenticate, async (req, res) => {
     }
 
     const blockInfo = await prisma.blockInfo.create({
-      data,
+      data: {
+        ...data,
+        organizationId: req.tenant!.organizationId,
+      },
     });
 
     res.status(201).json(blockInfo);
@@ -94,10 +113,11 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // PATCH /api/block-info/:id - Update block info (Coach only)
-router.patch('/:id', authenticate, async (req, res) => {
+router.patch('/:id', async (req, res) => {
   try {
-    // Check if user is coach
-    if (req.user.role !== 'coach') {
+    // Check if user is coach (legacy role or org role)
+    const isCoach = req.user.role === 'coach' || req.tenant!.permissions.isCoach;
+    if (!isCoach) {
       return res.status(403).json({ error: 'Only coaches can update block info' });
     }
 
@@ -111,6 +131,11 @@ router.patch('/:id', authenticate, async (req, res) => {
 
     if (!existing) {
       return res.status(404).json({ error: 'Block info not found' });
+    }
+
+    // Check tenant isolation
+    if (existing.organizationId !== req.tenant!.organizationId) {
+      return res.status(403).json({ error: 'Access denied to this block info' });
     }
 
     const blockInfo = await prisma.blockInfo.update({
@@ -129,10 +154,11 @@ router.patch('/:id', authenticate, async (req, res) => {
 });
 
 // DELETE /api/block-info/:id - Delete block info (Coach only)
-router.delete('/:id', authenticate, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    // Check if user is coach
-    if (req.user.role !== 'coach') {
+    // Check if user is coach (legacy role or org role)
+    const isCoach = req.user.role === 'coach' || req.tenant!.permissions.isCoach;
+    if (!isCoach) {
       return res.status(403).json({ error: 'Only coaches can delete block info' });
     }
 
@@ -145,6 +171,11 @@ router.delete('/:id', authenticate, async (req, res) => {
 
     if (!existing) {
       return res.status(404).json({ error: 'Block info not found' });
+    }
+
+    // Check tenant isolation
+    if (existing.organizationId !== req.tenant!.organizationId) {
+      return res.status(403).json({ error: 'Access denied to this block info' });
     }
 
     await prisma.blockInfo.delete({

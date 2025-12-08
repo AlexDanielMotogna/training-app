@@ -2,8 +2,12 @@ import express from 'express';
 import { z } from 'zod';
 import prisma from '../utils/prisma.js';
 import { authenticate } from '../middleware/auth.js';
+import { optionalTenant } from '../middleware/tenant.js';
 
 const router = express.Router();
+
+// Apply auth + optional tenant to all routes
+router.use(authenticate, optionalTenant);
 
 // Validation schema
 const trainingTypeSchema = z.object({
@@ -15,12 +19,27 @@ const trainingTypeSchema = z.object({
 });
 
 // GET /api/training-types - Get all training types
-router.get('/', authenticate, async (req, res) => {
+// Returns: global types (organizationId = null) + org-specific types
+router.get('/', async (req, res) => {
   try {
+    // Build filter: global types OR types from user's organization
+    const where: any = {
+      OR: [
+        { organizationId: null }, // Global/system types
+      ],
+    };
+
+    // Add org-specific types if user has an organization
+    if (req.tenant?.organizationId) {
+      where.OR.push({ organizationId: req.tenant.organizationId });
+    }
+
     const trainingTypes = await prisma.trainingType.findMany({
+      where,
       orderBy: { createdAt: 'asc' },
     });
 
+    console.log(`[TRAINING-TYPES] Returning ${trainingTypes.length} types for org ${req.tenant?.organizationId || 'none'}`);
     res.json(trainingTypes);
   } catch (error) {
     console.error('Get training types error:', error);
@@ -29,7 +48,7 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // GET /api/training-types/:id - Get single training type
-router.get('/:id', authenticate, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -41,6 +60,11 @@ router.get('/:id', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Training type not found' });
     }
 
+    // Check access: allow global types or types from user's org
+    if (trainingType.organizationId && trainingType.organizationId !== req.tenant?.organizationId) {
+      return res.status(403).json({ error: 'Access denied to this training type' });
+    }
+
     res.json(trainingType);
   } catch (error) {
     console.error('Get training type error:', error);
@@ -49,18 +73,25 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // POST /api/training-types - Create new training type (Coach only)
-router.post('/', authenticate, async (req, res) => {
+router.post('/', async (req, res) => {
   try {
-    // Check if user is coach
-    if (req.user.role !== 'coach') {
+    // Check if user is coach (legacy role or org role)
+    const isCoach = req.user.role === 'coach' || req.tenant?.permissions.isCoach;
+    if (!isCoach) {
       return res.status(403).json({ error: 'Only coaches can create training types' });
     }
 
     const data = trainingTypeSchema.parse(req.body);
 
-    // Check if key already exists
-    const existing = await prisma.trainingType.findUnique({
-      where: { key: data.key },
+    // Check if key already exists in global or user's org
+    const existing = await prisma.trainingType.findFirst({
+      where: {
+        key: data.key,
+        OR: [
+          { organizationId: null },
+          { organizationId: req.tenant?.organizationId || null },
+        ],
+      },
     });
 
     if (existing) {
@@ -68,7 +99,11 @@ router.post('/', authenticate, async (req, res) => {
     }
 
     const trainingType = await prisma.trainingType.create({
-      data,
+      data: {
+        ...data,
+        // Set organizationId for org-specific types
+        organizationId: req.tenant?.organizationId || null,
+      },
     });
 
     res.status(201).json(trainingType);
@@ -82,10 +117,11 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // PATCH /api/training-types/:id - Update training type (Coach only)
-router.patch('/:id', authenticate, async (req, res) => {
+router.patch('/:id', async (req, res) => {
   try {
-    // Check if user is coach
-    if (req.user.role !== 'coach') {
+    // Check if user is coach (legacy role or org role)
+    const isCoach = req.user.role === 'coach' || req.tenant?.permissions.isCoach;
+    if (!isCoach) {
       return res.status(403).json({ error: 'Only coaches can update training types' });
     }
 
@@ -101,10 +137,18 @@ router.patch('/:id', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Training type not found' });
     }
 
-    // If updating key, check it's not taken
+    // Check access: can only update types from user's org (not global)
+    if (existing.organizationId && existing.organizationId !== req.tenant?.organizationId) {
+      return res.status(403).json({ error: 'Access denied to this training type' });
+    }
+
+    // If updating key, check it's not taken in same scope
     if (data.key && data.key !== existing.key) {
-      const keyTaken = await prisma.trainingType.findUnique({
-        where: { key: data.key },
+      const keyTaken = await prisma.trainingType.findFirst({
+        where: {
+          key: data.key,
+          organizationId: existing.organizationId,
+        },
       });
 
       if (keyTaken) {
@@ -128,10 +172,11 @@ router.patch('/:id', authenticate, async (req, res) => {
 });
 
 // DELETE /api/training-types/:id - Delete training type (Coach only)
-router.delete('/:id', authenticate, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    // Check if user is coach
-    if (req.user.role !== 'coach') {
+    // Check if user is coach (legacy role or org role)
+    const isCoach = req.user.role === 'coach' || req.tenant?.permissions.isCoach;
+    if (!isCoach) {
       return res.status(403).json({ error: 'Only coaches can delete training types' });
     }
 
@@ -144,6 +189,16 @@ router.delete('/:id', authenticate, async (req, res) => {
 
     if (!existing) {
       return res.status(404).json({ error: 'Training type not found' });
+    }
+
+    // Check access: can only delete types from user's org (not global)
+    if (existing.organizationId && existing.organizationId !== req.tenant?.organizationId) {
+      return res.status(403).json({ error: 'Access denied to this training type' });
+    }
+
+    // Prevent deleting global types (only platform admins should do that)
+    if (!existing.organizationId && req.user.platformRole !== 'super_admin') {
+      return res.status(403).json({ error: 'Cannot delete global training types' });
     }
 
     await prisma.trainingType.delete({

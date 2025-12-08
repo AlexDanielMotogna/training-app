@@ -213,10 +213,11 @@ router.post('/signup', async (req, res) => {
     }
 
     // Validate player-specific fields if role is player
+    // Note: position and jerseyNumber are now assigned by coaches via team member management
     if (invitation.role === 'player') {
-      if (!birthDate || !sex || !weightKg || !heightCm || !position) {
+      if (!birthDate || !sex || !weightKg || !heightCm) {
         return res.status(400).json({
-          error: 'Player profile requires: birthDate, sex, weightKg, heightCm, and position'
+          error: 'Player profile requires: birthDate, sex, weightKg, and heightCm'
         });
       }
 
@@ -253,15 +254,13 @@ router.post('/signup', async (req, res) => {
     };
 
     // Add player-specific fields if role is player
+    // Note: position and jerseyNumber are assigned by coaches via TeamMember management
     if (invitation.role === 'player') {
       userData.birthDate = birthDate; // ISO date string (YYYY-MM-DD)
       userData.sex = sex;
       userData.weightKg = weightKg;
       userData.heightCm = heightCm;
-      userData.position = position;
-      if (jerseyNumber) {
-        userData.jerseyNumber = parseInt(jerseyNumber);
-      }
+      // position and jerseyNumber are set at the TeamMember level, not User level
     }
 
     // Create user
@@ -303,6 +302,21 @@ router.post('/signup', async (req, res) => {
 
     console.log(`[INVITATIONS] New user ${user.id} signed up via invitation to org ${invitation.organizationId}`);
 
+    // Get organization details to include in response
+    const organization = await prisma.organization.findUnique({
+      where: { id: invitation.organizationId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        sportId: true,
+        plan: true,
+        primaryColor: true,
+        secondaryColor: true,
+        logoUrl: true,
+      },
+    });
+
     // Broadcast invitation accepted event via SSE
     sseManager.broadcastToOrganization(invitation.organizationId, 'invitation:accepted', {
       invitationId: invitation.id,
@@ -329,6 +343,10 @@ router.post('/signup', async (req, res) => {
         weightKg: user.weightKg,
         heightCm: user.heightCm,
       },
+      organization: organization ? {
+        ...organization,
+        role: invitation.role,
+      } : null,
     });
   } catch (error) {
     console.error('[INVITATIONS] Signup error:', error);

@@ -24,25 +24,12 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useI18n } from '../../i18n/I18nProvider';
 import { toastService } from '../../services/toast';
-import type { Position } from '../../types/exercise';
-
-interface SportPosition {
-  id: string;
-  abbreviation: string;
-  name: string;
-  group: string;
-  nameTranslations?: {
-    en?: string;
-    de?: string;
-  };
-}
 
 interface InvitationDetails {
   organizationId: string;
   organizationName: string;
   sportId: string;
   sportName: string;
-  positions: SportPosition[];
   email: string;
   role: string;
   expiresAt: string;
@@ -53,7 +40,7 @@ interface InvitationDetails {
 const Join: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const token = searchParams.get('token');
 
   const [loading, setLoading] = useState(true);
@@ -72,21 +59,10 @@ const Join: React.FC = () => {
   const [sex, setSex] = useState<'male' | 'female'>('male');
   const [weightKg, setWeightKg] = useState<number | ''>('');
   const [heightCm, setHeightCm] = useState<number | ''>('');
-  const [position, setPosition] = useState<string>('');
-  const [jerseyNumber, setJerseyNumber] = useState('');
 
   // Password visibility
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  // Set default position when invitation loads
-  useEffect(() => {
-    if (invitation && invitation.positions && invitation.positions.length > 0 && !position) {
-      console.log('[JOIN] Setting default position:', invitation.positions[0].abbreviation);
-      console.log('[JOIN] Current locale:', locale);
-      setPosition(invitation.positions[0].abbreviation);
-    }
-  }, [invitation, position, locale]);
 
   useEffect(() => {
     if (!token) {
@@ -193,10 +169,6 @@ const Join: React.FC = () => {
         toastService.error('Please enter your height');
         return;
       }
-      if (!position) {
-        toastService.error('Please select your position');
-        return;
-      }
     }
 
     setIsSubmitting(true);
@@ -214,10 +186,7 @@ const Join: React.FC = () => {
         requestBody.sex = sex;
         requestBody.weightKg = weightKg;
         requestBody.heightCm = heightCm;
-        requestBody.position = position;
-        if (jerseyNumber) {
-          requestBody.jerseyNumber = jerseyNumber;
-        }
+        // Note: position and jerseyNumber are assigned by coaches via team member management
       }
 
       const response = await fetch('/api/invitations/signup', {
@@ -235,10 +204,15 @@ const Join: React.FC = () => {
 
       const data = await response.json();
 
-      // Save auth token and user data
+      // Save auth token, user data, and organization
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('userRole', data.user.role);
       localStorage.setItem('currentUser', JSON.stringify(data.user));
+
+      // Save organization for theming and branding
+      if (data.organization) {
+        localStorage.setItem('teamtrainer_organization', JSON.stringify(data.organization));
+      }
 
       toastService.success('Account created! Welcome to the organization.');
 
@@ -436,40 +410,7 @@ const Join: React.FC = () => {
             {/* Player-specific fields */}
             {invitation.role === 'player' && (
               <>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
-                  <TextField
-                    label={t('auth.jerseyNumber')}
-                    value={jerseyNumber}
-                    onChange={(e) => setJerseyNumber(e.target.value)}
-                    disabled={isSubmitting}
-                    placeholder="--"
-                    helperText={t('auth.jerseyNumberOptional')}
-                  />
-
-                  <FormControl required fullWidth>
-                    <InputLabel>{t('auth.position')}</InputLabel>
-                    <Select
-                      value={position}
-                      label={t('auth.position')}
-                      onChange={(e) => {
-                        console.log('[JOIN] Position changed to:', e.target.value);
-                        setPosition(e.target.value);
-                      }}
-                      disabled={isSubmitting}
-                    >
-                      {invitation.positions?.map((pos) => {
-                        const displayName = (pos.nameTranslations as any)?.[locale] || pos.name;
-                        console.log('[JOIN] Rendering position:', pos.abbreviation, displayName);
-                        return (
-                          <MenuItem key={pos.id} value={pos.abbreviation}>
-                            {displayName}
-                          </MenuItem>
-                        );
-                      })}
-                    </Select>
-                  </FormControl>
-                </Box>
-
+                {/* Note: Position and jersey number are assigned by coaches via team member management */}
                 <TextField
                   fullWidth
                   label={t('auth.birthDate')}

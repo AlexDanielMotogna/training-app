@@ -23,7 +23,11 @@ router.get('/', requireTenant, async (req, res) => {
       include: {
         ageCategory: true,
         _count: {
-          select: { members: true },
+          select: {
+            members: {
+              where: { isActive: true }, // Only count active members
+            },
+          },
         },
       },
       orderBy: [
@@ -111,7 +115,14 @@ router.get('/:id', requireTenant, async (req, res) => {
                 avatarUrl: true,
               },
             },
-            position: true,
+            position: {
+              select: {
+                id: true,
+                name: true,
+                abbreviation: true,
+                group: true,
+              },
+            },
           },
         },
       },
@@ -232,7 +243,7 @@ const updateTeamSchema = z.object({
   seasonPhase: z.enum(['off-season', 'pre-season', 'in-season']).optional(),
 });
 
-router.patch('/:id', requireOrgAdmin, async (req, res) => {
+router.patch('/:id', requireTenant, requireOrgAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const orgId = req.tenant!.organizationId;
@@ -282,7 +293,7 @@ router.patch('/:id', requireOrgAdmin, async (req, res) => {
 });
 
 // DELETE /api/organizations/:orgId/teams/:id - Delete team (admin+)
-router.delete('/:id', requireOrgAdmin, async (req, res) => {
+router.delete('/:id', requireTenant, requireOrgAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const orgId = req.tenant!.organizationId;
@@ -345,7 +356,14 @@ router.get('/:id/members', requireTenant, async (req, res) => {
             birthDate: true,
           },
         },
-        position: true,
+        position: {
+          select: {
+            id: true,
+            name: true,
+            abbreviation: true,
+            group: true,
+          },
+        },
       },
       orderBy: [
         { role: 'asc' },
@@ -368,7 +386,7 @@ const addMemberSchema = z.object({
   jerseyNumber: z.number().int().min(0).max(99).optional(),
 });
 
-router.post('/:id/members', requireOrgAdmin, async (req, res) => {
+router.post('/:id/members', requireTenant, requireOrgAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const orgId = req.tenant!.organizationId;
@@ -423,7 +441,14 @@ router.post('/:id/members', requireOrgAdmin, async (req, res) => {
         },
         include: {
           user: { select: { id: true, name: true, email: true } },
-          position: true,
+          position: {
+            select: {
+              id: true,
+              name: true,
+              abbreviation: true,
+              group: true,
+            },
+          },
         },
       });
       return res.json(member);
@@ -439,7 +464,7 @@ router.post('/:id/members', requireOrgAdmin, async (req, res) => {
       },
       include: {
         user: { select: { id: true, name: true, email: true } },
-        position: true,
+        // position: true, // Not yet defined in schema
       },
     });
 
@@ -461,7 +486,7 @@ const updateMemberSchema = z.object({
   jerseyNumber: z.number().int().min(0).max(99).optional().nullable(),
 });
 
-router.patch('/:teamId/members/:userId', requireOrgAdmin, async (req, res) => {
+router.patch('/:teamId/members/:userId', requireTenant, requireOrgAdmin, async (req, res) => {
   try {
     const { teamId, userId } = req.params;
     const orgId = req.tenant!.organizationId;
@@ -486,7 +511,7 @@ router.patch('/:teamId/members/:userId', requireOrgAdmin, async (req, res) => {
       data,
       include: {
         user: { select: { id: true, name: true, email: true } },
-        position: true,
+        // position: true, // Not yet defined in schema
       },
     });
 
@@ -502,7 +527,7 @@ router.patch('/:teamId/members/:userId', requireOrgAdmin, async (req, res) => {
 });
 
 // DELETE /api/organizations/:orgId/teams/:teamId/members/:userId - Remove from team
-router.delete('/:teamId/members/:userId', requireOrgAdmin, async (req, res) => {
+router.delete('/:teamId/members/:userId', requireTenant, requireOrgAdmin, async (req, res) => {
   try {
     const { teamId, userId } = req.params;
     const orgId = req.tenant!.organizationId;

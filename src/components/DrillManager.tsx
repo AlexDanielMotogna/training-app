@@ -33,11 +33,12 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Upload as UploadIcon,
-  SportsFootball as SportsIcon,
   Remove as RemoveIcon,
   Download as DownloadIcon,
 } from '@mui/icons-material';
 import { useI18n } from '../i18n/I18nProvider';
+import { useOrganization } from '../contexts/OrganizationContext';
+import { getSportIcon } from '../pages/DrillbookView';
 import { drillService, syncDrillsFromBackend } from '../services/drillService';
 import { equipmentService, syncEquipmentFromBackend } from '../services/equipmentService';
 import { drillCategoryService, syncDrillCategoriesFromBackend, DrillCategory as ManagedCategory } from '../services/drillCategoryService';
@@ -55,6 +56,9 @@ const DIFFICULTY_COLORS: Record<DrillDifficulty, string> = {
 
 export const DrillManager: React.FC = () => {
   const { t } = useI18n();
+  const { organization } = useOrganization();
+  const sportName = (organization as any)?.sport?.name;
+  const SportIcon = getSportIcon(sportName);
   const [drills, setDrills] = useState<Drill[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [categories, setCategories] = useState<ManagedCategory[]>([]);
@@ -454,7 +458,7 @@ export const DrillManager: React.FC = () => {
 
       {filteredDrills.length === 0 && (
         <Box sx={{ textAlign: 'center', py: 8 }}>
-          <SportsIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+          <SportIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
           <Typography variant="body1" color="text.secondary">
             {t('drills.noDrills')}
           </Typography>

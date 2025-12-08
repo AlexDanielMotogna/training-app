@@ -169,6 +169,11 @@ router.get('/:id', requireTenant, async (req, res) => {
                 displayOrder: 'asc',
               },
             },
+            positions: {
+              orderBy: {
+                displayOrder: 'asc',
+              },
+            },
           },
         },
         teams: {

@@ -44,6 +44,7 @@ model Position {
   groupTranslations Json     @default("{}")
 
   sport             Sport    @relation(fields: [sportId], references: [id], onDelete: Cascade)
+  teamMembers       TeamMember[]
 
   @@unique([sportId, abbreviation])
   @@index([sportId])
@@ -217,10 +218,12 @@ model TeamMember {
 
   team              Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  position          Position? @relation(fields: [positionId], references: [id])
 
   @@unique([teamId, userId])
   @@index([userId])
   @@index([teamId])
+  @@index([positionId])
 }
 
 // ========================================

@@ -22,8 +22,6 @@ import {
   IconButton,
   Divider,
   FormHelperText,
-  useTheme,
-  alpha,
 } from '@mui/material';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -34,6 +32,7 @@ import GoogleIcon from '@mui/icons-material/Google';
 import { useI18n } from '../../i18n/I18nProvider';
 import { authService, setAuthToken } from '../../services/api';
 import { saveUser } from '../../services/userProfile';
+import { backgrounds, gradients, brand, borders, radius, text } from '../../designTokens';
 
 interface Sport {
   id: string;
@@ -43,17 +42,14 @@ interface Sport {
 }
 
 interface FormData {
-  // Step 1: Account
   email: string;
   password: string;
   confirmPassword: string;
   firstName: string;
   lastName: string;
-  // Step 2: Organization
   organizationName: string;
   sportId: string;
   timezone: string;
-  // Step 3: Team
   teamName: string;
   ageCategoryId: string;
   userRole: 'owner' | 'head_coach';
@@ -74,18 +70,88 @@ const TIMEZONES = [
   { value: 'Australia/Sydney', label: 'Sydney (AEST)' },
 ];
 
+// Dark input styles matching the Landing page
+const darkInputStyles = {
+  '& .MuiOutlinedInput-root': {
+    borderRadius: radius.sm,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    color: '#ffffff',
+    '& fieldset': {
+      borderColor: borders.dark.light,
+    },
+    '&:hover fieldset': {
+      borderColor: borders.dark.medium,
+    },
+    '&.Mui-focused fieldset': {
+      borderColor: brand.primary.main,
+    },
+  },
+  '& .MuiInputLabel-root': {
+    color: text.dark.secondary,
+    '&.Mui-focused': {
+      color: brand.primary.main,
+    },
+  },
+  '& .MuiInputBase-input': {
+    color: '#ffffff',
+  },
+  '& .MuiFormHelperText-root': {
+    color: text.dark.muted,
+  },
+};
+
+const darkSelectStyles = {
+  borderRadius: radius.sm,
+  backgroundColor: 'rgba(255,255,255,0.05)',
+  color: '#ffffff',
+  '& .MuiOutlinedInput-notchedOutline': {
+    borderColor: borders.dark.light,
+  },
+  '&:hover .MuiOutlinedInput-notchedOutline': {
+    borderColor: borders.dark.medium,
+  },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+    borderColor: brand.primary.main,
+  },
+  '& .MuiSelect-icon': {
+    color: text.dark.secondary,
+  },
+};
+
+const selectMenuProps = {
+  PaperProps: {
+    sx: {
+      backgroundColor: backgrounds.dark.elevated,
+      border: `1px solid ${borders.dark.light}`,
+      '& .MuiMenuItem-root': {
+        color: text.dark.primary,
+        '&:hover': {
+          backgroundColor: 'rgba(255,255,255,0.05)',
+        },
+        '&.Mui-selected': {
+          backgroundColor: 'rgba(99,102,241,0.2)',
+        },
+      },
+    },
+  },
+};
+
 export const Signup: React.FC = () => {
-  const theme = useTheme();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [sports, setSports] = useState<Sport[]>([]);
-  const [ageCategories, setAgeCategories] = useState<{ id: string; name: string; code: string }[]>([]);
+  const [ageCategories, setAgeCategories] = useState<{
+    id: string;
+    name: string;
+    code: string;
+    nameTranslations?: { en?: string; es?: string; de?: string };
+  }[]>([]);
   const [loadingSports, setLoadingSports] = useState(true);
 
   const selectedPlan = searchParams.get('plan') || 'free';
@@ -104,7 +170,6 @@ export const Signup: React.FC = () => {
     userRole: 'owner',
   });
 
-  // Load sports on mount
   useEffect(() => {
     const loadSports = async () => {
       try {
@@ -115,7 +180,6 @@ export const Signup: React.FC = () => {
           const data = await response.json();
           setSports(data);
         } else {
-          // Fallback data for demo - all 9 supported sports
           setSports([
             { id: '1', name: 'American Football', slug: 'american-football' },
             { id: '2', name: 'Basketball', slug: 'basketball' },
@@ -128,8 +192,7 @@ export const Signup: React.FC = () => {
             { id: '9', name: 'Lacrosse', slug: 'lacrosse' },
           ]);
         }
-      } catch (err) {
-        // Fallback data - all 9 supported sports
+      } catch {
         setSports([
           { id: '1', name: 'American Football', slug: 'american-football' },
           { id: '2', name: 'Basketball', slug: 'basketball' },
@@ -148,9 +211,8 @@ export const Signup: React.FC = () => {
     loadSports();
   }, []);
 
-  // Age categories per sport - based on official federation standards
   const AGE_CATEGORIES_BY_SPORT: Record<string, { id: string; name: string; code: string }[]> = {
-    '1': [ // American Football
+    '1': [
       { id: 'u6', name: 'Under 6', code: 'U6' },
       { id: 'u8', name: 'Under 8', code: 'U8' },
       { id: 'u10', name: 'Under 10', code: 'U10' },
@@ -158,169 +220,43 @@ export const Signup: React.FC = () => {
       { id: 'u14', name: 'Under 14', code: 'U14' },
       { id: 'u16', name: 'Under 16', code: 'U16' },
       { id: 'u18', name: 'Under 18', code: 'U18' },
-      { id: 'u20', name: 'Under 20', code: 'U20' },
-      { id: 'u21', name: 'Under 21', code: 'U21' },
       { id: 'senior', name: 'Senior', code: 'SEN' },
-      { id: 'veterans35', name: 'Veterans 35+', code: 'V35' },
-      { id: 'veterans45', name: 'Veterans 45+', code: 'V45' },
     ],
-    '2': [ // Basketball
-      { id: 'u6', name: 'Under 6', code: 'U6' },
-      { id: 'u8', name: 'Under 8', code: 'U8' },
-      { id: 'u9', name: 'Under 9', code: 'U9' },
-      { id: 'u10', name: 'Under 10', code: 'U10' },
-      { id: 'u12', name: 'Under 12', code: 'U12' },
-      { id: 'u13', name: 'Under 13', code: 'U13' },
-      { id: 'u14', name: 'Under 14', code: 'U14' },
-      { id: 'u15', name: 'Under 15', code: 'U15' },
-      { id: 'u16', name: 'Under 16', code: 'U16' },
-      { id: 'u17', name: 'Under 17', code: 'U17' },
-      { id: 'u18', name: 'Under 18', code: 'U18' },
-      { id: 'u20', name: 'Under 20', code: 'U20' },
-      { id: 'senior', name: 'Senior', code: 'SEN' },
-      { id: 'veterans35', name: 'Veterans 35+', code: 'V35' },
-      { id: 'veterans40', name: 'Veterans 40+', code: 'V40' },
-      { id: 'veterans50', name: 'Veterans 50+', code: 'V50' },
-    ],
-    '3': [ // Soccer
-      { id: 'u5', name: 'Under 5', code: 'U5' },
-      { id: 'u6', name: 'Under 6', code: 'U6' },
-      { id: 'u7', name: 'Under 7', code: 'U7' },
-      { id: 'u8', name: 'Under 8', code: 'U8' },
-      { id: 'u9', name: 'Under 9', code: 'U9' },
-      { id: 'u10', name: 'Under 10', code: 'U10' },
-      { id: 'u11', name: 'Under 11', code: 'U11' },
-      { id: 'u12', name: 'Under 12', code: 'U12' },
-      { id: 'u13', name: 'Under 13', code: 'U13' },
-      { id: 'u14', name: 'Under 14', code: 'U14' },
-      { id: 'u15', name: 'Under 15', code: 'U15' },
-      { id: 'u16', name: 'Under 16', code: 'U16' },
-      { id: 'u17', name: 'Under 17', code: 'U17' },
-      { id: 'u18', name: 'Under 18', code: 'U18' },
-      { id: 'u19', name: 'Under 19', code: 'U19' },
-      { id: 'u20', name: 'Under 20', code: 'U20' },
-      { id: 'u21', name: 'Under 21', code: 'U21' },
-      { id: 'u23', name: 'Under 23', code: 'U23' },
-      { id: 'senior', name: 'Senior', code: 'SEN' },
-      { id: 'veterans35', name: 'Veterans 35+', code: 'V35' },
-      { id: 'veterans40', name: 'Veterans 40+', code: 'V40' },
-      { id: 'veterans45', name: 'Veterans 45+', code: 'V45' },
-    ],
-    '4': [ // Volleyball
-      { id: 'u8', name: 'Under 8', code: 'U8' },
-      { id: 'u10', name: 'Under 10', code: 'U10' },
-      { id: 'u12', name: 'Under 12', code: 'U12' },
-      { id: 'u13', name: 'Under 13', code: 'U13' },
-      { id: 'u14', name: 'Under 14', code: 'U14' },
-      { id: 'u15', name: 'Under 15', code: 'U15' },
-      { id: 'u16', name: 'Under 16', code: 'U16' },
-      { id: 'u17', name: 'Under 17', code: 'U17' },
-      { id: 'u18', name: 'Under 18', code: 'U18' },
-      { id: 'u20', name: 'Under 20', code: 'U20' },
-      { id: 'senior', name: 'Senior', code: 'SEN' },
-      { id: 'masters35', name: 'Masters 35+', code: 'M35' },
-      { id: 'masters45', name: 'Masters 45+', code: 'M45' },
-    ],
-    '5': [ // Handball
+    '2': [
       { id: 'u8', name: 'Under 8', code: 'U8' },
       { id: 'u10', name: 'Under 10', code: 'U10' },
       { id: 'u12', name: 'Under 12', code: 'U12' },
       { id: 'u14', name: 'Under 14', code: 'U14' },
-      { id: 'u15', name: 'Under 15', code: 'U15' },
       { id: 'u16', name: 'Under 16', code: 'U16' },
-      { id: 'u17', name: 'Under 17', code: 'U17' },
       { id: 'u18', name: 'Under 18', code: 'U18' },
-      { id: 'u20', name: 'Under 20', code: 'U20' },
       { id: 'senior', name: 'Senior', code: 'SEN' },
-      { id: 'masters35', name: 'Masters 35+', code: 'M35' },
     ],
-    '6': [ // Rugby
+    '3': [
       { id: 'u6', name: 'Under 6', code: 'U6' },
       { id: 'u8', name: 'Under 8', code: 'U8' },
       { id: 'u10', name: 'Under 10', code: 'U10' },
       { id: 'u12', name: 'Under 12', code: 'U12' },
       { id: 'u14', name: 'Under 14', code: 'U14' },
       { id: 'u16', name: 'Under 16', code: 'U16' },
-      { id: 'u17', name: 'Under 17', code: 'U17' },
       { id: 'u18', name: 'Under 18', code: 'U18' },
-      { id: 'u20', name: 'Under 20', code: 'U20' },
-      { id: 'u23', name: 'Under 23', code: 'U23' },
       { id: 'senior', name: 'Senior', code: 'SEN' },
-      { id: 'veterans35', name: 'Veterans 35+', code: 'V35' },
-      { id: 'veterans45', name: 'Veterans 45+', code: 'V45' },
-    ],
-    '7': [ // Ice Hockey
-      { id: 'u6', name: 'U6 (Mite)', code: 'U6' },
-      { id: 'u8', name: 'U8 (Mite)', code: 'U8' },
-      { id: 'u10', name: 'U10 (Squirt)', code: 'U10' },
-      { id: 'u12', name: 'U12 (Peewee)', code: 'U12' },
-      { id: 'u14', name: 'U14 (Bantam)', code: 'U14' },
-      { id: 'u15', name: 'Under 15', code: 'U15' },
-      { id: 'u16', name: 'Under 16', code: 'U16' },
-      { id: 'u17', name: 'Under 17', code: 'U17' },
-      { id: 'u18', name: 'U18 (Midget Major)', code: 'U18' },
-      { id: 'junior', name: 'Junior (16-20)', code: 'JR' },
-      { id: 'senior', name: 'Senior', code: 'SEN' },
-      { id: 'masters30', name: 'Masters 30+', code: 'M30' },
-      { id: 'masters40', name: 'Masters 40+', code: 'M40' },
-    ],
-    '8': [ // Baseball
-      { id: 'u5', name: 'U5 (T-Ball)', code: 'U5' },
-      { id: 'u6', name: 'Under 6', code: 'U6' },
-      { id: 'u7', name: 'Under 7', code: 'U7' },
-      { id: 'u8', name: 'Under 8', code: 'U8' },
-      { id: 'u9', name: 'Under 9', code: 'U9' },
-      { id: 'u10', name: 'Under 10', code: 'U10' },
-      { id: 'u11', name: 'Under 11', code: 'U11' },
-      { id: 'u12', name: 'Under 12', code: 'U12' },
-      { id: 'u13', name: 'Under 13', code: 'U13' },
-      { id: 'u14', name: 'Under 14', code: 'U14' },
-      { id: 'u15', name: 'Under 15', code: 'U15' },
-      { id: 'u16', name: 'Under 16', code: 'U16' },
-      { id: 'u17', name: 'Under 17', code: 'U17' },
-      { id: 'u18', name: 'Under 18', code: 'U18' },
-      { id: 'u23', name: 'Under 23', code: 'U23' },
-      { id: 'senior', name: 'Senior', code: 'SEN' },
-      { id: 'masters35', name: 'Masters 35+', code: 'M35' },
-    ],
-    '9': [ // Lacrosse
-      { id: 'u7', name: 'Under 7', code: 'U7' },
-      { id: 'u8', name: 'Under 8', code: 'U8' },
-      { id: 'u9', name: 'Under 9', code: 'U9' },
-      { id: 'u10', name: 'Under 10', code: 'U10' },
-      { id: 'u11', name: 'Under 11', code: 'U11' },
-      { id: 'u12', name: 'Under 12', code: 'U12' },
-      { id: 'u13', name: 'Under 13', code: 'U13' },
-      { id: 'u14', name: 'Under 14', code: 'U14' },
-      { id: 'u15', name: 'Under 15', code: 'U15' },
-      { id: 'u16', name: 'Under 16', code: 'U16' },
-      { id: 'u17', name: 'Under 17', code: 'U17' },
-      { id: 'u18', name: 'Under 18', code: 'U18' },
-      { id: 'u21', name: 'Under 21', code: 'U21' },
-      { id: 'senior', name: 'Senior', code: 'SEN' },
-      { id: 'veterans35', name: 'Veterans 35+', code: 'V35' },
     ],
   };
 
-  // Load age categories when sport changes
   useEffect(() => {
     if (formData.sportId) {
-      // First try to get age categories from the sports API data
       const selectedSport = sports.find(s => s.id === formData.sportId);
-      if (selectedSport && 'ageCategories' in selectedSport && Array.isArray(selectedSport.ageCategories)) {
-        // Use real age categories from API
-        setAgeCategories(selectedSport.ageCategories.map((cat: any) => ({
+      if (selectedSport && 'ageCategories' in selectedSport && Array.isArray((selectedSport as any).ageCategories)) {
+        setAgeCategories((selectedSport as any).ageCategories.map((cat: any) => ({
           id: cat.id,
           name: cat.name,
           code: cat.code
         })));
       } else {
-        // Fallback to hardcoded categories if API data not available
         const categories = AGE_CATEGORIES_BY_SPORT[formData.sportId];
         if (categories) {
           setAgeCategories(categories);
         } else {
-          // Fallback to generic categories
           setAgeCategories([
             { id: 'u12', name: 'Under 12', code: 'U12' },
             { id: 'u14', name: 'Under 14', code: 'U14' },
@@ -330,7 +266,6 @@ export const Signup: React.FC = () => {
           ]);
         }
       }
-      // Reset selected age category when sport changes
       setFormData(prev => ({ ...prev, ageCategoryId: '' }));
     }
   }, [formData.sportId, sports]);
@@ -344,7 +279,7 @@ export const Signup: React.FC = () => {
 
   const validateStep = (step: number): boolean => {
     switch (step) {
-      case 0: // Account
+      case 0:
         if (!formData.email || !formData.password || !formData.firstName || !formData.lastName) {
           setError(t('signup.errors.requiredFields'));
           return false;
@@ -362,21 +297,18 @@ export const Signup: React.FC = () => {
           return false;
         }
         return true;
-
-      case 1: // Organization
+      case 1:
         if (!formData.organizationName || !formData.sportId) {
           setError(t('signup.errors.requiredFields'));
           return false;
         }
         return true;
-
-      case 2: // Team
+      case 2:
         if (!formData.teamName || !formData.ageCategoryId) {
           setError(t('signup.errors.requiredFields'));
           return false;
         }
         return true;
-
       default:
         return true;
     }
@@ -402,19 +334,23 @@ export const Signup: React.FC = () => {
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-      // Step 1: Create user account
       const signupResponse = await authService.signup({
         email: formData.email,
         password: formData.password,
         name: `${formData.firstName} ${formData.lastName}`,
-        role: 'coach', // Organization creator is always a coach
+        role: 'coach',
       });
 
-      // Save auth token and user
       setAuthToken(signupResponse.token);
-      saveUser(signupResponse.user);
+      const userForStorage = {
+        ...signupResponse.user,
+        age: signupResponse.user.age || 0,
+        weightKg: signupResponse.user.weightKg || 0,
+        heightCm: signupResponse.user.heightCm || 0,
+        position: (signupResponse.user.position || 'RB') as 'RB' | 'WR' | 'LB' | 'OL' | 'DB' | 'QB' | 'DL' | 'TE' | 'K/P',
+      };
+      saveUser(userForStorage as Parameters<typeof saveUser>[0]);
 
-      // Step 2: Create organization
       const orgResponse = await fetch(`${API_URL}/organizations`, {
         method: 'POST',
         headers: {
@@ -425,8 +361,8 @@ export const Signup: React.FC = () => {
           name: formData.organizationName,
           slug: formData.organizationName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
           sportId: formData.sportId,
-          primaryColor: '#1976d2',
-          secondaryColor: '#dc004e',
+          primaryColor: brand.primary.main,
+          secondaryColor: brand.secondary.main,
           timezone: formData.timezone || 'Europe/Madrid',
         }),
       });
@@ -437,14 +373,11 @@ export const Signup: React.FC = () => {
       }
 
       const organization = await orgResponse.json();
-
-      // Update token if a new one was provided (includes organizationId)
       const authToken = organization.token || signupResponse.token;
       if (organization.token) {
         setAuthToken(organization.token);
       }
 
-      // Step 3: Create first team
       const teamResponse = await fetch(`${API_URL}/organizations/${organization.id}/teams`, {
         method: 'POST',
         headers: {
@@ -465,20 +398,13 @@ export const Signup: React.FC = () => {
 
       const team = await teamResponse.json();
 
-      // Store organization context with role
-      const orgContext = {
-        ...organization,
-        role: 'owner',
-      };
+      const orgContext = { ...organization, role: 'owner' };
       localStorage.setItem('teamtrainer_organization', JSON.stringify(orgContext));
-
-      // Store team IDs
       localStorage.setItem('teamtrainer_teams', JSON.stringify([{ id: team.id }]));
       localStorage.setItem('teamtrainer_active_team', team.id);
 
-      // Navigate to training page (user is now part of organization)
       navigate('/training');
-      window.location.reload(); // Reload to load org context
+      window.location.reload();
     } catch (err: any) {
       setError(err.message || t('signup.errors.generic'));
     } finally {
@@ -491,26 +417,33 @@ export const Signup: React.FC = () => {
       case 0:
         return (
           <Box>
-            <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
+            <Typography variant="h5" fontWeight={600} sx={{ mb: 1, color: text.dark.primary }}>
               {t('signup.step1.title')}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+            <Typography variant="body2" sx={{ mb: 4, color: text.dark.secondary }}>
               {t('signup.step1.subtitle')}
             </Typography>
 
-            {/* Social Login Buttons */}
             <Button
               variant="outlined"
               fullWidth
               startIcon={<GoogleIcon />}
-              sx={{ mb: 2 }}
+              sx={{
+                mb: 2,
+                borderColor: borders.dark.light,
+                color: text.dark.primary,
+                '&:hover': {
+                  borderColor: borders.dark.medium,
+                  backgroundColor: 'rgba(255,255,255,0.05)',
+                },
+              }}
               disabled
             >
               {t('signup.continueWithGoogle')}
             </Button>
 
-            <Divider sx={{ my: 3 }}>
-              <Typography variant="body2" color="text.secondary">
+            <Divider sx={{ my: 3, borderColor: borders.dark.light }}>
+              <Typography variant="body2" sx={{ color: text.dark.muted }}>
                 {t('signup.orEmail')}
               </Typography>
             </Divider>
@@ -524,6 +457,7 @@ export const Signup: React.FC = () => {
                   fullWidth
                   required
                   autoFocus
+                  sx={darkInputStyles}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -533,6 +467,7 @@ export const Signup: React.FC = () => {
                   onChange={handleChange('lastName')}
                   fullWidth
                   required
+                  sx={darkInputStyles}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -543,6 +478,7 @@ export const Signup: React.FC = () => {
                   onChange={handleChange('email')}
                   fullWidth
                   required
+                  sx={darkInputStyles}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -554,10 +490,15 @@ export const Signup: React.FC = () => {
                   fullWidth
                   required
                   helperText={t('signup.passwordHint')}
+                  sx={darkInputStyles}
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
-                        <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                        <IconButton
+                          onClick={() => setShowPassword(!showPassword)}
+                          edge="end"
+                          sx={{ color: text.dark.secondary }}
+                        >
                           {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
                         </IconButton>
                       </InputAdornment>
@@ -573,6 +514,7 @@ export const Signup: React.FC = () => {
                   onChange={handleChange('confirmPassword')}
                   fullWidth
                   required
+                  sx={darkInputStyles}
                 />
               </Grid>
             </Grid>
@@ -582,10 +524,10 @@ export const Signup: React.FC = () => {
       case 1:
         return (
           <Box>
-            <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
+            <Typography variant="h5" fontWeight={600} sx={{ mb: 1, color: text.dark.primary }}>
               {t('signup.step2.title')}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+            <Typography variant="body2" sx={{ mb: 4, color: text.dark.secondary }}>
               {t('signup.step2.subtitle')}
             </Typography>
 
@@ -599,16 +541,21 @@ export const Signup: React.FC = () => {
                   required
                   placeholder="e.g. Madrid Lions FC"
                   autoFocus
+                  sx={darkInputStyles}
                 />
               </Grid>
               <Grid item xs={12}>
                 <FormControl fullWidth required>
-                  <InputLabel>{t('signup.sport')}</InputLabel>
+                  <InputLabel sx={{ color: text.dark.secondary, '&.Mui-focused': { color: brand.primary.main } }}>
+                    {t('signup.sport')}
+                  </InputLabel>
                   <Select
                     value={formData.sportId}
                     label={t('signup.sport')}
                     onChange={(e) => setFormData({ ...formData, sportId: e.target.value as string })}
                     disabled={loadingSports}
+                    sx={darkSelectStyles}
+                    MenuProps={selectMenuProps}
                   >
                     {sports.map((sport) => (
                       <MenuItem key={sport.id} value={sport.id}>
@@ -616,16 +563,20 @@ export const Signup: React.FC = () => {
                       </MenuItem>
                     ))}
                   </Select>
-                  <FormHelperText>{t('signup.sportHint')}</FormHelperText>
+                  <FormHelperText sx={{ color: text.dark.muted }}>{t('signup.sportHint')}</FormHelperText>
                 </FormControl>
               </Grid>
               <Grid item xs={12}>
                 <FormControl fullWidth>
-                  <InputLabel>{t('signup.timezone')}</InputLabel>
+                  <InputLabel sx={{ color: text.dark.secondary, '&.Mui-focused': { color: brand.primary.main } }}>
+                    {t('signup.timezone')}
+                  </InputLabel>
                   <Select
                     value={formData.timezone}
                     label={t('signup.timezone')}
                     onChange={(e) => setFormData({ ...formData, timezone: e.target.value as string })}
+                    sx={darkSelectStyles}
+                    MenuProps={selectMenuProps}
                   >
                     {TIMEZONES.map((tz) => (
                       <MenuItem key={tz.value} value={tz.value}>
@@ -637,25 +588,25 @@ export const Signup: React.FC = () => {
               </Grid>
             </Grid>
 
-            {/* Plan Badge */}
             {selectedPlan !== 'free' && (
               <Box
                 sx={{
                   mt: 4,
                   p: 2,
-                  bgcolor: alpha(theme.palette.primary.main, 0.1),
-                  borderRadius: 2,
+                  background: 'rgba(99,102,241,0.1)',
+                  borderRadius: radius.md,
+                  border: `1px solid ${borders.dark.light}`,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 2,
                 }}
               >
-                <CheckCircleIcon sx={{ color: 'primary.main' }} />
+                <CheckCircleIcon sx={{ color: brand.primary.main }} />
                 <Box>
-                  <Typography variant="subtitle2" fontWeight={600}>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: text.dark.primary }}>
                     {selectedPlan.charAt(0).toUpperCase() + selectedPlan.slice(1)} Plan
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: text.dark.secondary }}>
                     {t('signup.trialInfo')}
                   </Typography>
                 </Box>
@@ -667,10 +618,10 @@ export const Signup: React.FC = () => {
       case 2:
         return (
           <Box>
-            <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
+            <Typography variant="h5" fontWeight={600} sx={{ mb: 1, color: text.dark.primary }}>
               {t('signup.step3.title')}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+            <Typography variant="body2" sx={{ mb: 4, color: text.dark.secondary }}>
               {t('signup.step3.subtitle')}
             </Typography>
 
@@ -684,92 +635,102 @@ export const Signup: React.FC = () => {
                   required
                   placeholder="e.g. Seniors, U15 Team"
                   autoFocus
+                  sx={darkInputStyles}
                 />
               </Grid>
               <Grid item xs={12}>
                 <FormControl fullWidth required disabled={!formData.sportId}>
-                  <InputLabel>{t('signup.ageCategory')}</InputLabel>
+                  <InputLabel sx={{ color: text.dark.secondary, '&.Mui-focused': { color: brand.primary.main } }}>
+                    {t('signup.ageCategory')}
+                  </InputLabel>
                   <Select
                     value={formData.ageCategoryId}
                     label={t('signup.ageCategory')}
                     onChange={(e) => setFormData({ ...formData, ageCategoryId: e.target.value as string })}
+                    sx={darkSelectStyles}
+                    MenuProps={selectMenuProps}
                   >
-                    {ageCategories.map((cat) => (
-                      <MenuItem key={cat.id} value={cat.id}>
-                        {cat.name} ({cat.code})
-                      </MenuItem>
-                    ))}
+                    {ageCategories.map((cat) => {
+                      const displayName = cat.nameTranslations?.[locale as 'en' | 'de'] || cat.name;
+                      return (
+                        <MenuItem key={cat.id} value={cat.id}>
+                          {displayName} ({cat.code})
+                        </MenuItem>
+                      );
+                    })}
                   </Select>
                 </FormControl>
               </Grid>
               <Grid item xs={12}>
                 <FormControl fullWidth>
-                  <InputLabel>{t('signup.yourRole')}</InputLabel>
+                  <InputLabel sx={{ color: text.dark.secondary, '&.Mui-focused': { color: brand.primary.main } }}>
+                    {t('signup.yourRole')}
+                  </InputLabel>
                   <Select
                     value={formData.userRole}
                     label={t('signup.yourRole')}
                     onChange={(e) => setFormData({ ...formData, userRole: e.target.value as 'owner' | 'head_coach' })}
+                    sx={darkSelectStyles}
+                    MenuProps={selectMenuProps}
                   >
                     <MenuItem value="owner">{t('signup.roleOwner')}</MenuItem>
                     <MenuItem value="head_coach">{t('signup.roleHeadCoach')}</MenuItem>
                   </Select>
-                  <FormHelperText>{t('signup.roleHint')}</FormHelperText>
+                  <FormHelperText sx={{ color: text.dark.muted }}>{t('signup.roleHint')}</FormHelperText>
                 </FormControl>
               </Grid>
             </Grid>
 
-            {/* Summary */}
             <Box
               sx={{
                 mt: 4,
                 p: 3,
-                bgcolor: 'grey.50',
-                borderRadius: 2,
-                border: 1,
-                borderColor: 'grey.200',
+                backgroundColor: backgrounds.dark.card,
+                borderRadius: radius.md,
+                border: `1px solid ${borders.dark.light}`,
               }}
             >
-              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2, color: text.dark.primary }}>
                 {t('signup.summary')}
               </Typography>
               <Grid container spacing={1}>
                 <Grid item xs={6}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: text.dark.secondary }}>
                     {t('signup.summaryOrg')}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
-                  <Typography variant="body2" fontWeight={500}>
+                  <Typography variant="body2" fontWeight={500} sx={{ color: text.dark.primary }}>
                     {formData.organizationName}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: text.dark.secondary }}>
                     {t('signup.summarySport')}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
-                  <Typography variant="body2" fontWeight={500}>
+                  <Typography variant="body2" fontWeight={500} sx={{ color: text.dark.primary }}>
                     {sports.find((s) => s.id === formData.sportId)?.name || '-'}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: text.dark.secondary }}>
                     {t('signup.summaryTeam')}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
-                  <Typography variant="body2" fontWeight={500}>
+                  <Typography variant="body2" fontWeight={500} sx={{ color: text.dark.primary }}>
                     {formData.teamName}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: text.dark.secondary }}>
                     {t('signup.summaryPlan')}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
-                  <Typography variant="body2" fontWeight={500}>
+                  <Typography variant="body2" fontWeight={500} sx={{ color: text.dark.primary }}>
                     {selectedPlan.charAt(0).toUpperCase() + selectedPlan.slice(1)}
                   </Typography>
                 </Grid>
@@ -784,9 +745,32 @@ export const Signup: React.FC = () => {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'grey.50', py: 4 }}>
-      {/* Header */}
-      <Container maxWidth="sm">
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: backgrounds.dark.primary,
+        py: 4,
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Background gradient effect */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: '10%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '800px',
+          height: '800px',
+          background: gradients.purpleGlow,
+          opacity: 0.4,
+          pointerEvents: 'none',
+        }}
+      />
+
+      <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 1 }}>
+        {/* Logo - TeamTrainer style */}
         <Box
           sx={{
             display: 'flex',
@@ -798,14 +782,42 @@ export const Signup: React.FC = () => {
           }}
           onClick={() => navigate('/')}
         >
-          <FitnessCenterIcon sx={{ color: 'primary.main', fontSize: 32 }} />
-          <Typography variant="h5" fontWeight={700} color="primary">
+          <FitnessCenterIcon sx={{ color: brand.primary.main, fontSize: 40 }} />
+          <Typography
+            variant="h4"
+            fontWeight={700}
+            sx={{
+              background: gradients.primary,
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
             TeamTrainer
           </Typography>
         </Box>
 
         {/* Stepper */}
-        <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
+        <Stepper
+          activeStep={activeStep}
+          alternativeLabel
+          sx={{
+            mb: 4,
+            '& .MuiStepLabel-label': {
+              color: text.dark.muted,
+              '&.Mui-active': { color: text.dark.primary },
+              '&.Mui-completed': { color: text.dark.secondary },
+            },
+            '& .MuiStepIcon-root': {
+              color: borders.dark.medium,
+              '&.Mui-active': { color: brand.primary.main },
+              '&.Mui-completed': { color: brand.primary.main },
+            },
+            '& .MuiStepConnector-line': {
+              borderColor: borders.dark.light,
+            },
+          }}
+        >
           {STEPS.map((label) => (
             <Step key={label}>
               <StepLabel>{label}</StepLabel>
@@ -814,22 +826,41 @@ export const Signup: React.FC = () => {
         </Stepper>
 
         {/* Form Card */}
-        <Card sx={{ boxShadow: 3 }}>
+        <Card
+          sx={{
+            backgroundColor: backgrounds.dark.card,
+            backdropFilter: 'blur(20px)',
+            border: `1px solid ${borders.dark.light}`,
+            borderRadius: radius.md,
+          }}
+        >
           <CardContent sx={{ p: 4 }}>
             {error && (
-              <Alert severity="error" sx={{ mb: 3 }}>
+              <Alert
+                severity="error"
+                sx={{
+                  mb: 3,
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  color: '#f87171',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  '& .MuiAlert-icon': { color: '#f87171' },
+                }}
+              >
                 {error}
               </Alert>
             )}
 
             {renderStepContent(activeStep)}
 
-            {/* Navigation Buttons */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
               <Button
                 startIcon={<ArrowBackIcon />}
                 onClick={activeStep === 0 ? () => navigate('/') : handleBack}
                 disabled={loading}
+                sx={{
+                  color: text.dark.secondary,
+                  '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' },
+                }}
               >
                 {activeStep === 0 ? t('signup.backToHome') : t('signup.back')}
               </Button>
@@ -839,16 +870,28 @@ export const Signup: React.FC = () => {
                   variant="contained"
                   onClick={handleSubmit}
                   disabled={loading}
-                  sx={{ minWidth: 140 }}
+                  sx={{
+                    minWidth: 140,
+                    background: gradients.primary,
+                    '&:hover': { background: gradients.primaryHover },
+                    '&.Mui-disabled': {
+                      background: 'rgba(255,255,255,0.1)',
+                      color: 'rgba(255,255,255,0.3)',
+                    },
+                  }}
                 >
-                  {loading ? (
-                    <CircularProgress size={24} color="inherit" />
-                  ) : (
-                    t('signup.createAccount')
-                  )}
+                  {loading ? <CircularProgress size={24} color="inherit" /> : t('signup.createAccount')}
                 </Button>
               ) : (
-                <Button variant="contained" onClick={handleNext} disabled={loading}>
+                <Button
+                  variant="contained"
+                  onClick={handleNext}
+                  disabled={loading}
+                  sx={{
+                    background: gradients.primary,
+                    '&:hover': { background: gradients.primaryHover },
+                  }}
+                >
                   {t('signup.next')}
                 </Button>
               )}
@@ -858,24 +901,32 @@ export const Signup: React.FC = () => {
 
         {/* Login Link */}
         <Box sx={{ textAlign: 'center', mt: 3 }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: text.dark.secondary }}>
             {t('signup.haveAccount')}{' '}
             <Button
               variant="text"
               size="small"
               onClick={() => navigate('/login')}
-              sx={{ textTransform: 'none' }}
+              sx={{
+                textTransform: 'none',
+                color: brand.primary.light,
+                '&:hover': { backgroundColor: 'rgba(99,102,241,0.1)' },
+              }}
             >
               {t('signup.login')}
             </Button>
           </Typography>
         </Box>
 
-        {/* Terms */}
         <Typography
           variant="caption"
-          color="text.secondary"
-          sx={{ display: 'block', textAlign: 'center', mt: 4, px: 2 }}
+          sx={{
+            display: 'block',
+            textAlign: 'center',
+            mt: 4,
+            px: 2,
+            color: text.dark.muted,
+          }}
         >
           {t('signup.terms')}
         </Typography>

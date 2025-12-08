@@ -32,7 +32,6 @@ import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
 import GroupIcon from '@mui/icons-material/Group';
 import GroupsIcon from '@mui/icons-material/Groups';
 import SettingsIcon from '@mui/icons-material/Settings';
-import SportsFootballIcon from '@mui/icons-material/SportsFootball';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import BusinessIcon from '@mui/icons-material/Business';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -47,6 +46,7 @@ import { notificationService } from '../services/api';
 import type { Notification } from '../types/notification';
 import { useOrganization } from '../contexts/OrganizationContext';
 import { toastService } from '../services/toast';
+import { getSportIcon } from '../pages/DrillbookView';
 
 const DEFAULT_LOGO = '/teamtraining-logo.svg';
 
@@ -63,6 +63,10 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
   const { organization } = useOrganization();
   const user = getUser();
+
+  // Get sport-specific icon for navigation
+  const sportName = (organization as any)?.sport?.name;
+  const SportIconComponent = getSportIcon(sportName);
 
   useEffect(() => {
     // Load notifications from backend
@@ -107,14 +111,14 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
     { key: 'team', label: t('nav.team'), icon: <GroupIcon />, path: '/team', showForAll: true },
     { key: 'spielplan', label: t('nav.spielplan'), icon: <CalendarTodayIcon />, path: '/spielplan', showForAll: true },
     { key: 'trainingSessions', label: t('nav.trainingSessions'), icon: <GroupsIcon />, path: '/training-sessions', showForAll: true },
-    { key: 'drillbook', label: t('nav.drillbook'), icon: <SportsFootballIcon />, path: '/drillbook', showForAll: true },
+    { key: 'drillbook', label: t('nav.drillbook'), icon: <SportIconComponent />, path: '/drillbook', showForAll: true },
     { key: 'leaderboard', label: t('nav.leaderboard'), icon: <LeaderboardIcon />, path: '/leaderboard', showForAll: true },
     { key: 'videos', label: t('nav.videos'), icon: <OndemandVideoIcon />, path: '/videos', showForAll: true },
   ];
 
   const adminMenuItems = [
     { key: 'admin', label: t('nav.coachPanel'), icon: <SportsIcon />, path: '/admin', description: t('nav.coachPanelDesc') },
-    { key: 'drillSessionsManage', label: t('nav.manageDrillSessions'), icon: <SportsFootballIcon />, path: '/drill-sessions-manage' },
+    { key: 'drillSessionsManage', label: t('nav.manageDrillSessions'), icon: <SportIconComponent />, path: '/drill-sessions-manage' },
     { key: 'reports', label: t('nav.reports'), icon: <DescriptionIcon />, path: '/reports' },
     { key: 'orgSettings', label: t('nav.orgSettings'), icon: <BusinessIcon />, path: '/org-settings' },
   ];

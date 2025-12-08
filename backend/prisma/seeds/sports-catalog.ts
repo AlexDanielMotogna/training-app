@@ -1,12 +1,12 @@
 /**
  * Sports Catalog Seed Data
  *
- * Este archivo contiene todos los deportes soportados con sus:
- * - Posiciones
- * - Categorías de edad
- * - Métricas de rendimiento
+ * This file contains all supported sports with their:
+ * - Positions
+ * - Age Categories
+ * - Performance Metrics
  *
- * Ejecutar: npx tsx prisma/seeds/sports-catalog.ts
+ * Run: npx tsx prisma/seeds/sports-catalog.ts
  */
 
 import dotenv from 'dotenv';
@@ -143,10 +143,10 @@ const basketball: SportDefinition = {
   ageCategories: [
     { name: 'Mini (Under 10)', code: 'U10', minAge: 6, maxAge: 9, nameTranslations: { en: 'Mini (Under 10)', es: 'Mini (Sub-10)', de: 'Mini (U10)' } },
     { name: 'PreMini (Under 12)', code: 'U12', minAge: 10, maxAge: 11, nameTranslations: { en: 'PreMini (Under 12)', es: 'PreMini (Sub-12)', de: 'PreMini (U12)' } },
-    { name: 'Infantil (Under 14)', code: 'U14', minAge: 12, maxAge: 13, nameTranslations: { en: 'Infantil (Under 14)', es: 'Infantil (Sub-14)', de: 'Infantil (U14)' } },
-    { name: 'Cadete (Under 16)', code: 'U16', minAge: 14, maxAge: 15, nameTranslations: { en: 'Cadete (Under 16)', es: 'Cadete (Sub-16)', de: 'Kadetten (U16)' } },
+    { name: 'Under 14', code: 'U14', minAge: 12, maxAge: 13, nameTranslations: { en: 'Under 14', es: 'Infantil (Sub-14)', de: 'Infantil (U14)' } },
+    { name: 'Under 16', code: 'U16', minAge: 14, maxAge: 15, nameTranslations: { en: 'Under 16', es: 'Cadete (Sub-16)', de: 'Kadetten (U16)' } },
     { name: 'Junior (Under 18)', code: 'U18', minAge: 16, maxAge: 17, nameTranslations: { en: 'Junior (Under 18)', es: 'Junior (Sub-18)', de: 'Junioren (U18)' } },
-    { name: 'Sub-22', code: 'U22', minAge: 18, maxAge: 21, nameTranslations: { en: 'Under 22', es: 'Sub-22', de: 'U22' } },
+    { name: 'Under 22', code: 'U22', minAge: 18, maxAge: 21, nameTranslations: { en: 'Under 22', es: 'Sub-22', de: 'U22' } },
     { name: 'Senior', code: 'SEN', minAge: 18, maxAge: 34, nameTranslations: { en: 'Senior', es: 'Senior', de: 'Senior' } },
     { name: 'Masters (35+)', code: 'MAS', minAge: 35, maxAge: undefined, nameTranslations: { en: 'Masters (35+)', es: 'Masters (+35)', de: 'Masters (35+)' } },
   ],
@@ -196,15 +196,15 @@ const soccer: SportDefinition = {
     { name: 'Right Wing', abbreviation: 'RW', group: 'Forward', nameTranslations: { en: 'Right Wing', es: 'Extremo Derecho', de: 'Rechtsaußen' }, groupTranslations: { en: 'Forward', es: 'Ataque', de: 'Angriff' } },
   ],
   ageCategories: [
-    { name: 'Prebenjamín (Under 8)', code: 'U8', minAge: 5, maxAge: 7, nameTranslations: { en: 'Prebenjamín (Under 8)', es: 'Prebenjamín (Sub-8)', de: 'Bambini (U8)' } },
-    { name: 'Benjamín (Under 10)', code: 'U10', minAge: 8, maxAge: 9, nameTranslations: { en: 'Benjamín (Under 10)', es: 'Benjamín (Sub-10)', de: 'F-Jugend (U10)' } },
-    { name: 'Alevín (Under 12)', code: 'U12', minAge: 10, maxAge: 11, nameTranslations: { en: 'Alevín (Under 12)', es: 'Alevín (Sub-12)', de: 'E-Jugend (U12)' } },
-    { name: 'Infantil (Under 14)', code: 'U14', minAge: 12, maxAge: 13, nameTranslations: { en: 'Infantil (Under 14)', es: 'Infantil (Sub-14)', de: 'D-Jugend (U14)' } },
-    { name: 'Cadete (Under 16)', code: 'U16', minAge: 14, maxAge: 15, nameTranslations: { en: 'Cadete (Under 16)', es: 'Cadete (Sub-16)', de: 'C-Jugend (U16)' } },
-    { name: 'Juvenil (Under 18)', code: 'U18', minAge: 16, maxAge: 17, nameTranslations: { en: 'Juvenil (Under 18)', es: 'Juvenil (Sub-18)', de: 'B-Jugend (U18)' } },
+    { name: 'Under 8', code: 'U8', minAge: 5, maxAge: 7, nameTranslations: { en: 'Under 8', es: 'Prebenjamín (Sub-8)', de: 'Bambini (U8)' } },
+    { name: 'Under 10', code: 'U10', minAge: 8, maxAge: 9, nameTranslations: { en: 'Under 10', es: 'Benjamín (Sub-10)', de: 'F-Jugend (U10)' } },
+    { name: 'Under 12', code: 'U12', minAge: 10, maxAge: 11, nameTranslations: { en: 'Under 12', es: 'Alevín (Sub-12)', de: 'E-Jugend (U12)' } },
+    { name: 'Under 14', code: 'U14', minAge: 12, maxAge: 13, nameTranslations: { en: 'Under 14', es: 'Infantil (Sub-14)', de: 'D-Jugend (U14)' } },
+    { name: 'Under 16', code: 'U16', minAge: 14, maxAge: 15, nameTranslations: { en: 'Under 16', es: 'Cadete (Sub-16)', de: 'C-Jugend (U16)' } },
+    { name: 'Under 18', code: 'U18', minAge: 16, maxAge: 17, nameTranslations: { en: 'Under 18', es: 'Juvenil (Sub-18)', de: 'B-Jugend (U18)' } },
     { name: 'Under 21', code: 'U21', minAge: 18, maxAge: 20, nameTranslations: { en: 'Under 21', es: 'Sub-21', de: 'A-Jugend (U21)' } },
     { name: 'Senior', code: 'SEN', minAge: 18, maxAge: 34, nameTranslations: { en: 'Senior', es: 'Senior', de: 'Senioren' } },
-    { name: 'Veterano (35+)', code: 'VET', minAge: 35, maxAge: undefined, nameTranslations: { en: 'Veterans (35+)', es: 'Veteranos (+35)', de: 'Alte Herren (35+)' } },
+    { name: 'Veterans (35+)', code: 'VET', minAge: 35, maxAge: undefined, nameTranslations: { en: 'Veterans (35+)', es: 'Veteranos (+35)', de: 'Alte Herren (35+)' } },
   ],
   metrics: [
     { name: '30m Sprint', unit: 'seconds', type: 'time', isLowerBetter: true, nameTranslations: { en: '30m Sprint', es: 'Sprint 30m', de: '30m Sprint' } },
@@ -240,13 +240,13 @@ const handball: SportDefinition = {
   ],
   ageCategories: [
     { name: 'Mini (Under 10)', code: 'U10', minAge: 6, maxAge: 9, nameTranslations: { en: 'Mini (Under 10)', es: 'Mini (Sub-10)', de: 'Mini (U10)' } },
-    { name: 'Benjamín (Under 12)', code: 'U12', minAge: 10, maxAge: 11, nameTranslations: { en: 'Benjamín (Under 12)', es: 'Benjamín (Sub-12)', de: 'E-Jugend (U12)' } },
-    { name: 'Alevín (Under 14)', code: 'U14', minAge: 12, maxAge: 13, nameTranslations: { en: 'Alevín (Under 14)', es: 'Alevín (Sub-14)', de: 'D-Jugend (U14)' } },
-    { name: 'Infantil (Under 16)', code: 'U16', minAge: 14, maxAge: 15, nameTranslations: { en: 'Infantil (Under 16)', es: 'Infantil (Sub-16)', de: 'C-Jugend (U16)' } },
-    { name: 'Cadete (Under 18)', code: 'U18', minAge: 16, maxAge: 17, nameTranslations: { en: 'Cadete (Under 18)', es: 'Cadete (Sub-18)', de: 'B-Jugend (U18)' } },
-    { name: 'Juvenil (Under 20)', code: 'U20', minAge: 18, maxAge: 19, nameTranslations: { en: 'Juvenil (Under 20)', es: 'Juvenil (Sub-20)', de: 'A-Jugend (U20)' } },
+    { name: 'Under 12', code: 'U12', minAge: 10, maxAge: 11, nameTranslations: { en: 'Under 12', es: 'Benjamín (Sub-12)', de: 'E-Jugend (U12)' } },
+    { name: 'Under 14', code: 'U14', minAge: 12, maxAge: 13, nameTranslations: { en: 'Under 14', es: 'Alevín (Sub-14)', de: 'D-Jugend (U14)' } },
+    { name: 'Under 16', code: 'U16', minAge: 14, maxAge: 15, nameTranslations: { en: 'Under 16', es: 'Infantil (Sub-16)', de: 'C-Jugend (U16)' } },
+    { name: 'Under 18', code: 'U18', minAge: 16, maxAge: 17, nameTranslations: { en: 'Under 18', es: 'Cadete (Sub-18)', de: 'B-Jugend (U18)' } },
+    { name: 'Under 20', code: 'U20', minAge: 18, maxAge: 19, nameTranslations: { en: 'Under 20', es: 'Juvenil (Sub-20)', de: 'A-Jugend (U20)' } },
     { name: 'Senior', code: 'SEN', minAge: 18, maxAge: 34, nameTranslations: { en: 'Senior', es: 'Senior', de: 'Senioren' } },
-    { name: 'Veterano (35+)', code: 'VET', minAge: 35, maxAge: undefined, nameTranslations: { en: 'Veterans (35+)', es: 'Veteranos (+35)', de: 'Alte Herren (35+)' } },
+    { name: 'Veterans (35+)', code: 'VET', minAge: 35, maxAge: undefined, nameTranslations: { en: 'Veterans (35+)', es: 'Veteranos (+35)', de: 'Alte Herren (35+)' } },
   ],
   metrics: [
     { name: '30m Sprint', unit: 'seconds', type: 'time', isLowerBetter: true, nameTranslations: { en: '30m Sprint', es: 'Sprint 30m', de: '30m Sprint' } },
@@ -334,13 +334,13 @@ const volleyball: SportDefinition = {
     { name: 'Libero', abbreviation: 'L', group: 'Libero', nameTranslations: { en: 'Libero', es: 'Líbero', de: 'Libero' }, groupTranslations: { en: 'Libero', es: 'Líbero', de: 'Libero' } },
   ],
   ageCategories: [
-    { name: 'Alevín (Under 12)', code: 'U12', minAge: 10, maxAge: 11, nameTranslations: { en: 'Alevín (Under 12)', es: 'Alevín (Sub-12)', de: 'U12' } },
-    { name: 'Infantil (Under 14)', code: 'U14', minAge: 12, maxAge: 13, nameTranslations: { en: 'Infantil (Under 14)', es: 'Infantil (Sub-14)', de: 'U14' } },
-    { name: 'Cadete (Under 16)', code: 'U16', minAge: 14, maxAge: 15, nameTranslations: { en: 'Cadete (Under 16)', es: 'Cadete (Sub-16)', de: 'U16' } },
-    { name: 'Juvenil (Under 18)', code: 'U18', minAge: 16, maxAge: 17, nameTranslations: { en: 'Juvenil (Under 18)', es: 'Juvenil (Sub-18)', de: 'U18' } },
+    { name: 'Under 12', code: 'U12', minAge: 10, maxAge: 11, nameTranslations: { en: 'Under 12', es: 'Alevín (Sub-12)', de: 'U12' } },
+    { name: 'Under 14', code: 'U14', minAge: 12, maxAge: 13, nameTranslations: { en: 'Under 14', es: 'Infantil (Sub-14)', de: 'U14' } },
+    { name: 'Under 16', code: 'U16', minAge: 14, maxAge: 15, nameTranslations: { en: 'Under 16', es: 'Cadete (Sub-16)', de: 'U16' } },
+    { name: 'Under 18', code: 'U18', minAge: 16, maxAge: 17, nameTranslations: { en: 'Under 18', es: 'Juvenil (Sub-18)', de: 'U18' } },
     { name: 'Junior (Under 21)', code: 'U21', minAge: 18, maxAge: 20, nameTranslations: { en: 'Junior (Under 21)', es: 'Junior (Sub-21)', de: 'U21' } },
     { name: 'Senior', code: 'SEN', minAge: 18, maxAge: 34, nameTranslations: { en: 'Senior', es: 'Senior', de: 'Senioren' } },
-    { name: 'Veterano (35+)', code: 'VET', minAge: 35, maxAge: undefined, nameTranslations: { en: 'Veterans (35+)', es: 'Veteranos (+35)', de: 'Alte Herren (35+)' } },
+    { name: 'Veterans (35+)', code: 'VET', minAge: 35, maxAge: undefined, nameTranslations: { en: 'Veterans (35+)', es: 'Veteranos (+35)', de: 'Alte Herren (35+)' } },
   ],
   metrics: [
     { name: 'Vertical Jump (Block)', unit: 'cm', type: 'distance', isLowerBetter: false, nameTranslations: { en: 'Vertical Jump (Block)', es: 'Salto de Bloqueo', de: 'Blocksprung' } },
