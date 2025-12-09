@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Avatar, LinearProgress, keyframes } from '@mui/material';
-import CheckIcon from '@mui/icons-material/Check';
-import AddIcon from '@mui/icons-material/Add';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import NotificationsIcon from '@mui/icons-material/Notifications';
+import { Box, Typography, Avatar, Chip, Badge, keyframes } from '@mui/material';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import AddCircleIcon from '@mui/icons-material/AddCircle';
+import EventIcon from '@mui/icons-material/Event';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 
 // Keyframes
 const fadeIn = keyframes`
@@ -11,48 +13,140 @@ const fadeIn = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
-const slideIn = keyframes`
-  from { opacity: 0; transform: translateX(-10px); }
+const slideInLeft = keyframes`
+  from { opacity: 0; transform: translateX(-15px); }
   to { opacity: 1; transform: translateX(0); }
 `;
 
-const scaleIn = keyframes`
-  from { transform: scale(0); }
-  to { transform: scale(1); }
-`;
-
-const growBar = keyframes`
-  from { width: 0%; }
-  to { width: var(--target-width); }
-`;
-
 const slideUp = keyframes`
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(15px); }
   to { opacity: 1; transform: translateY(0); }
 `;
 
-const pulse = keyframes`
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+const growWidth = keyframes`
+  from { width: 0; }
+  to { width: 100%; }
 `;
 
-// 1. Training Plans Mini Demo
+const scaleIn = keyframes`
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+`;
+
+// Real app workout type colors
+const workoutTypeColors = {
+  coach: '#4caf50',      // Green for team workouts
+  player: '#ffc107',     // Yellow for free sessions
+  team: '#ff9800',       // Orange for team sessions
+  personal: '#9c27b0',   // Purple for personal sessions
+};
+
+// 1. Training Plans Mini Demo - matches PlanCard from MyTraining
 export const TrainingPlansMiniDemo: React.FC<{ isHovered: boolean }> = ({ isHovered }) => {
-  const [exercises, setExercises] = useState<string[]>([]);
+  const [showCard, setShowCard] = useState(false);
 
   useEffect(() => {
     if (isHovered) {
-      setExercises([]);
-      const items = ['Squats 4x8', 'Bench 3x10', 'Deadlift 3x5'];
-      items.forEach((item, i) => {
-        setTimeout(() => {
-          setExercises(prev => [...prev, item]);
-        }, i * 300);
-      });
+      setShowCard(false);
+      setTimeout(() => setShowCard(true), 100);
     } else {
-      setExercises([]);
+      setShowCard(false);
     }
   }, [isHovered]);
+
+  return (
+    <Box sx={{
+      width: '100%',
+      height: 120,
+      bgcolor: 'rgba(255,255,255,0.05)',
+      borderRadius: 1.5,
+      overflow: 'hidden',
+      border: '1px solid rgba(255,255,255,0.1)'
+    }}>
+      {showCard && (
+        <Box sx={{ animation: `${fadeIn} 0.4s ease-out` }}>
+          {/* Gradient header */}
+          <Box sx={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            px: 1.5,
+            py: 0.75,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'white' }}>
+              Strength Plan
+            </Typography>
+            <Chip
+              label="Week 3/8"
+              size="small"
+              sx={{
+                height: 18,
+                fontSize: '0.6rem',
+                bgcolor: 'rgba(255,255,255,0.2)',
+                color: 'white',
+                fontWeight: 600
+              }}
+            />
+          </Box>
+
+          {/* Exercise list */}
+          <Box sx={{ px: 1.5, py: 1 }}>
+            {['Back Squat', 'Bench Press'].map((exercise, i) => (
+              <Box
+                key={i}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  mb: i === 0 ? 0.75 : 0,
+                  animation: `${fadeIn} 0.3s ease-out ${i * 0.15}s both`
+                }}
+              >
+                <Box sx={{
+                  width: 30,
+                  height: 20,
+                  bgcolor: '#2196F3',
+                  borderRadius: 0.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <FitnessCenterIcon sx={{ fontSize: 12, color: 'white' }} />
+                </Box>
+                <Typography sx={{ fontSize: '0.65rem', fontWeight: 500, color: 'white', flex: 1 }}>
+                  {exercise}
+                </Typography>
+                <Chip label="Compound" size="small" sx={{ height: 16, fontSize: '0.55rem', bgcolor: 'rgba(99,102,241,0.2)', color: '#a5b4fc' }} />
+                <Chip label="4 sets" size="small" sx={{ height: 16, fontSize: '0.55rem', bgcolor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)' }} />
+              </Box>
+            ))}
+            <Typography sx={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.5)', mt: 1 }}>
+              Last used: 2 days ago
+            </Typography>
+          </Box>
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+// 2. Session Scheduling Mini Demo - matches TrainingSessions cards
+export const SchedulingMiniDemo: React.FC<{ isHovered: boolean }> = ({ isHovered }) => {
+  const [showSessions, setShowSessions] = useState(false);
+
+  useEffect(() => {
+    if (isHovered) {
+      setShowSessions(false);
+      setTimeout(() => setShowSessions(true), 100);
+    } else {
+      setShowSessions(false);
+    }
+  }, [isHovered]);
+
+  const sessions = [
+    { title: 'Team Training', time: '18:00', location: 'Main Gym' },
+  ];
 
   return (
     <Box sx={{
@@ -63,68 +157,180 @@ export const TrainingPlansMiniDemo: React.FC<{ isHovered: boolean }> = ({ isHove
       p: 1.5,
       overflow: 'hidden'
     }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-        <Typography variant="caption" sx={{ color: '#a5b4fc', fontWeight: 600, fontSize: '0.65rem' }}>
-          NEW PLAN
-        </Typography>
-      </Box>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {exercises.map((ex, i) => (
-          <Box
-            key={i}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              animation: `${slideIn} 0.3s ease-out`,
-              bgcolor: 'rgba(99,102,241,0.15)',
-              borderRadius: 1,
-              px: 1,
-              py: 0.5,
-            }}
-          >
-            <AddIcon sx={{ fontSize: 12, color: '#6366f1' }} />
-            <Typography variant="caption" sx={{ color: 'white', fontSize: '0.7rem' }}>
-              {ex}
-            </Typography>
-          </Box>
-        ))}
-        {exercises.length < 3 && (
-          <Box sx={{
-            border: '1px dashed rgba(255,255,255,0.2)',
+      {showSessions && sessions.map((session, i) => (
+        <Box
+          key={i}
+          sx={{
+            bgcolor: 'rgba(255,255,255,0.05)',
             borderRadius: 1,
-            py: 0.5,
-            textAlign: 'center',
-            animation: `${pulse} 1s ease-in-out infinite`
-          }}>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.65rem' }}>
-              Drop exercise here...
+            p: 1.5,
+            border: '1px solid rgba(255,255,255,0.1)',
+            animation: `${slideInLeft} 0.4s ease-out`
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
+            <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'white', flex: 1 }}>
+              {session.title}
+            </Typography>
+            <Chip
+              label="Team"
+              size="small"
+              sx={{
+                height: 18,
+                fontSize: '0.6rem',
+                bgcolor: workoutTypeColors.team,
+                color: 'white',
+                fontWeight: 600
+              }}
+            />
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            <LocationOnIcon sx={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }} />
+            <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.7)' }}>
+              {session.location}
             </Typography>
           </Box>
-        )}
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <AccessTimeIcon sx={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }} />
+            <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.7)' }}>
+              {session.time} - 20:00
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box sx={{ display: 'flex', marginLeft: -0.5 }}>
+              {[1, 2, 3].map((num) => (
+                <Avatar
+                  key={num}
+                  sx={{
+                    width: 20,
+                    height: 20,
+                    fontSize: '0.6rem',
+                    bgcolor: '#2196F3',
+                    border: '2px solid rgba(0,0,0,0.3)',
+                    ml: -0.5,
+                    fontWeight: 600
+                  }}
+                >
+                  {num * 7}
+                </Avatar>
+              ))}
+            </Box>
+            <CheckCircleIcon sx={{ fontSize: 16, color: workoutTypeColors.coach, ml: 0.5 }} />
+          </Box>
+        </Box>
+      ))}
+    </Box>
+  );
+};
+
+// 3. Analytics Mini Demo - matches MyStats calendar day cards
+export const AnalyticsMiniDemo: React.FC<{ isHovered: boolean }> = ({ isHovered }) => {
+  const [showDays, setShowDays] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (isHovered) {
+      setShowDays([]);
+      [0, 1, 2, 3, 4, 5, 6].forEach((day) => {
+        setTimeout(() => {
+          setShowDays(prev => [...prev, day]);
+        }, day * 80);
+      });
+    } else {
+      setShowDays([]);
+    }
+  }, [isHovered]);
+
+  const days = [
+    { day: 15, workouts: ['coach', 'player'] },
+    { day: 16, workouts: [] },
+    { day: 17, workouts: ['team'] },
+    { day: 18, workouts: ['coach'] },
+    { day: 19, workouts: ['player', 'team'] },
+    { day: 20, workouts: [] },
+    { day: 21, workouts: ['coach', 'player'] },
+  ];
+
+  return (
+    <Box sx={{
+      width: '100%',
+      height: 120,
+      bgcolor: 'rgba(0,0,0,0.3)',
+      borderRadius: 1.5,
+      p: 1.5,
+      overflow: 'hidden'
+    }}>
+      <Typography sx={{ fontSize: '0.65rem', fontWeight: 600, color: 'rgba(255,255,255,0.7)', mb: 1 }}>
+        Training Week
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'space-between' }}>
+        {days.map((dayData, i) => {
+          const isVisible = showDays.includes(i);
+          return (
+            <Box
+              key={i}
+              sx={{
+                flex: 1,
+                height: 70,
+                bgcolor: dayData.workouts.length > 0 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)',
+                borderRadius: 0.75,
+                border: '1px solid rgba(255,255,255,0.1)',
+                p: 0.5,
+                display: 'flex',
+                flexDirection: 'column',
+                opacity: isVisible ? 1 : 0,
+                transform: isVisible ? 'translateY(0)' : 'translateY(10px)',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              <Typography sx={{ fontSize: '0.6rem', fontWeight: 600, color: 'white', mb: 'auto' }}>
+                {dayData.day}
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                {dayData.workouts.map((type, j) => (
+                  <Box
+                    key={j}
+                    sx={{
+                      height: 3,
+                      borderRadius: 1,
+                      bgcolor: workoutTypeColors[type as keyof typeof workoutTypeColors],
+                      animation: isVisible ? `${growWidth} 0.3s ease-out ${j * 0.1}s both` : 'none'
+                    }}
+                  />
+                ))}
+              </Box>
+            </Box>
+          );
+        })}
       </Box>
     </Box>
   );
 };
 
-// 2. Session Scheduling Mini Demo
-export const SchedulingMiniDemo: React.FC<{ isHovered: boolean }> = ({ isHovered }) => {
-  const [filledDays, setFilledDays] = useState<number[]>([]);
-  const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+// 4. Team Management Mini Demo - matches Team.tsx player cards
+export const TeamMiniDemo: React.FC<{ isHovered: boolean }> = ({ isHovered }) => {
+  const [showPlayers, setShowPlayers] = useState<number[]>([]);
 
   useEffect(() => {
     if (isHovered) {
-      setFilledDays([]);
-      const schedule = [0, 2, 4]; // Mon, Wed, Fri
-      schedule.forEach((day, i) => {
+      setShowPlayers([]);
+      [0, 1, 2].forEach((i) => {
         setTimeout(() => {
-          setFilledDays(prev => [...prev, day]);
-        }, i * 250);
+          setShowPlayers(prev => [...prev, i]);
+        }, i * 200);
       });
     } else {
-      setFilledDays([]);
+      setShowPlayers([]);
     }
   }, [isHovered]);
+
+  const players = [
+    { name: 'Alex M.', position: 'Forward', jersey: 23, age: 23, weight: 82, height: 185 },
+    { name: 'Sarah K.', position: 'Midfielder', jersey: 10, age: 21, weight: 68, height: 170 },
+    { name: 'John D.', position: 'Defense', jersey: 5, age: 25, weight: 85, height: 188 },
+  ];
 
   return (
     <Box sx={{
@@ -133,323 +339,185 @@ export const SchedulingMiniDemo: React.FC<{ isHovered: boolean }> = ({ isHovered
       bgcolor: 'rgba(0,0,0,0.3)',
       borderRadius: 1.5,
       p: 1.5,
-      overflow: 'hidden'
+      overflow: 'hidden',
+      display: 'flex',
+      gap: 1
     }}>
-      <Typography variant="caption" sx={{ color: '#fbbf24', fontWeight: 600, fontSize: '0.65rem', mb: 1, display: 'block' }}>
-        THIS WEEK
-      </Typography>
-      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'space-between' }}>
-        {days.map((day, i) => (
+      {players.slice(0, 3).map((player, i) => {
+        const isVisible = showPlayers.includes(i);
+        return (
           <Box
             key={i}
             sx={{
+              flex: 1,
+              bgcolor: 'rgba(255,255,255,0.05)',
+              borderRadius: 1,
+              border: '1px solid rgba(255,255,255,0.1)',
+              p: 0.75,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: 0.5,
+              opacity: isVisible ? 1 : 0,
+              animation: isVisible ? `${fadeIn} 0.3s ease-out` : 'none'
             }}
           >
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.6rem' }}>
-              {day}
-            </Typography>
-            <Box
+            <Avatar
               sx={{
-                width: 24,
-                height: 24,
-                borderRadius: '50%',
-                bgcolor: filledDays.includes(i) ? '#f59e0b' : 'rgba(255,255,255,0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.3s ease',
-                animation: filledDays.includes(i) ? `${scaleIn} 0.3s ease-out` : 'none',
+                width: 28,
+                height: 28,
+                bgcolor: '#2196F3',
+                fontSize: '0.65rem',
+                fontWeight: 700,
+                mb: 0.5
               }}
             >
-              {filledDays.includes(i) && (
-                <CheckIcon sx={{ fontSize: 12, color: 'white' }} />
-              )}
+              {player.jersey}
+            </Avatar>
+            <Typography sx={{ fontSize: '0.65rem', fontWeight: 600, color: 'white', textAlign: 'center', lineHeight: 1.2, mb: 0.25 }}>
+              {player.name}
+            </Typography>
+            <Typography sx={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.6)', mb: 0.5 }}>
+              {player.position}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 0.25, flexWrap: 'wrap', justifyContent: 'center' }}>
+              <Chip label={`${player.age}y`} size="small" sx={{ height: 14, fontSize: '0.5rem', bgcolor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)' }} />
+              <Chip label={`${player.weight}kg`} size="small" sx={{ height: 14, fontSize: '0.5rem', bgcolor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)' }} />
             </Box>
           </Box>
-        ))}
-      </Box>
-      {filledDays.length > 0 && (
-        <Typography
-          variant="caption"
-          sx={{
-            color: 'rgba(255,255,255,0.6)',
-            fontSize: '0.6rem',
-            mt: 1,
-            display: 'block',
-            textAlign: 'center',
-            animation: `${fadeIn} 0.3s ease-out`
-          }}
-        >
-          {filledDays.length} sessions scheduled
-        </Typography>
-      )}
+        );
+      })}
     </Box>
   );
 };
 
-// 3. Analytics Mini Demo
-export const AnalyticsMiniDemo: React.FC<{ isHovered: boolean }> = ({ isHovered }) => {
-  const [progress, setProgress] = useState([0, 0, 0, 0]);
-  const targets = [85, 60, 95, 45];
-  const labels = ['Squat', 'Bench', 'Dead', 'OHP'];
+// 5. Leaderboard Mini Demo - matches Leaderboard.tsx table styling
+export const LeaderboardMiniDemo: React.FC<{ isHovered: boolean }> = ({ isHovered }) => {
+  const [showRows, setShowRows] = useState<number[]>([]);
 
   useEffect(() => {
     if (isHovered) {
-      setProgress([0, 0, 0, 0]);
-      targets.forEach((target, i) => {
+      setShowRows([]);
+      [0, 1, 2].forEach((i) => {
         setTimeout(() => {
-          setProgress(prev => {
-            const newProgress = [...prev];
-            newProgress[i] = target;
-            return newProgress;
-          });
-        }, i * 200);
-      });
-    } else {
-      setProgress([0, 0, 0, 0]);
-    }
-  }, [isHovered]);
-
-  return (
-    <Box sx={{
-      width: '100%',
-      height: 120,
-      bgcolor: 'rgba(0,0,0,0.3)',
-      borderRadius: 1.5,
-      p: 1.5,
-      overflow: 'hidden'
-    }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-        <TrendingUpIcon sx={{ fontSize: 12, color: '#10b981' }} />
-        <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 600, fontSize: '0.65rem' }}>
-          STRENGTH PROGRESS
-        </Typography>
-      </Box>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-        {labels.map((label, i) => (
-          <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.6rem', width: 30 }}>
-              {label}
-            </Typography>
-            <Box sx={{ flex: 1, height: 6, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
-              <Box
-                sx={{
-                  height: '100%',
-                  bgcolor: '#10b981',
-                  borderRadius: 3,
-                  width: `${progress[i]}%`,
-                  transition: 'width 0.5s ease-out',
-                }}
-              />
-            </Box>
-            <Typography variant="caption" sx={{ color: 'white', fontSize: '0.6rem', width: 24, textAlign: 'right' }}>
-              {progress[i]}%
-            </Typography>
-          </Box>
-        ))}
-      </Box>
-    </Box>
-  );
-};
-
-// 4. Team Management Mini Demo
-export const TeamMiniDemo: React.FC<{ isHovered: boolean }> = ({ isHovered }) => {
-  const [members, setMembers] = useState<number[]>([]);
-  const avatarColors = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#06b6d4'];
-  const names = ['JD', 'SM', 'AK', 'MR', 'CL'];
-
-  useEffect(() => {
-    if (isHovered) {
-      setMembers([]);
-      [0, 1, 2, 3, 4].forEach((i) => {
-        setTimeout(() => {
-          setMembers(prev => [...prev, i]);
+          setShowRows(prev => [...prev, i]);
         }, i * 150);
       });
     } else {
-      setMembers([]);
+      setShowRows([]);
     }
   }, [isHovered]);
 
-  return (
-    <Box sx={{
-      width: '100%',
-      height: 120,
-      bgcolor: 'rgba(0,0,0,0.3)',
-      borderRadius: 1.5,
-      p: 1.5,
-      overflow: 'hidden'
-    }}>
-      <Typography variant="caption" sx={{ color: '#ec4899', fontWeight: 600, fontSize: '0.65rem', mb: 1, display: 'block' }}>
-        TEAM ROSTER
-      </Typography>
-      <Box sx={{ display: 'flex', gap: -0.5, mb: 1 }}>
-        {members.map((i) => (
-          <Avatar
-            key={i}
-            sx={{
-              width: 28,
-              height: 28,
-              fontSize: '0.65rem',
-              fontWeight: 600,
-              bgcolor: avatarColors[i],
-              border: '2px solid rgba(20,20,25,1)',
-              marginLeft: i > 0 ? '-8px' : 0,
-              animation: `${scaleIn} 0.2s ease-out`,
-              zIndex: 5 - i,
-            }}
-          >
-            {names[i]}
-          </Avatar>
-        ))}
-        {members.length > 0 && (
-          <Avatar
-            sx={{
-              width: 28,
-              height: 28,
-              fontSize: '0.6rem',
-              bgcolor: 'rgba(255,255,255,0.1)',
-              border: '2px solid rgba(20,20,25,1)',
-              marginLeft: '-8px',
-              animation: `${fadeIn} 0.3s ease-out`,
-              color: 'rgba(255,255,255,0.5)',
-            }}
-          >
-            +12
-          </Avatar>
-        )}
-      </Box>
-      {members.length > 0 && (
-        <Typography
-          variant="caption"
-          sx={{
-            color: 'rgba(255,255,255,0.6)',
-            fontSize: '0.6rem',
-            animation: `${fadeIn} 0.3s ease-out`
-          }}
-        >
-          17 active members
-        </Typography>
-      )}
-    </Box>
-  );
-};
-
-// 5. Leaderboard Mini Demo
-export const LeaderboardMiniDemo: React.FC<{ isHovered: boolean }> = ({ isHovered }) => {
-  const [positions, setPositions] = useState<{ name: string; points: number; pos: number }[]>([]);
-  const initialData = [
-    { name: 'Alex M.', points: 2450, pos: 1 },
-    { name: 'Sarah K.', points: 2380, pos: 2 },
-    { name: 'John D.', points: 2290, pos: 3 },
+  const players = [
+    { rank: 1, name: 'Alex M.', position: 'FW', points: 2450 },
+    { rank: 2, name: 'Sarah K.', position: 'MF', points: 2380 },
+    { rank: 3, name: 'John D.', position: 'DF', points: 2290 },
   ];
 
-  useEffect(() => {
-    if (isHovered) {
-      setPositions([]);
-      initialData.forEach((item, i) => {
-        setTimeout(() => {
-          setPositions(prev => [...prev, item]);
-        }, i * 200);
-      });
-    } else {
-      setPositions([]);
-    }
-  }, [isHovered]);
-
-  const getMedalColor = (pos: number) => {
-    if (pos === 1) return '#fbbf24';
-    if (pos === 2) return '#9ca3af';
-    return '#cd7f32';
-  };
-
   return (
     <Box sx={{
       width: '100%',
       height: 120,
       bgcolor: 'rgba(0,0,0,0.3)',
       borderRadius: 1.5,
-      p: 1.5,
       overflow: 'hidden'
     }}>
-      <Typography variant="caption" sx={{ color: '#a78bfa', fontWeight: 600, fontSize: '0.65rem', mb: 1, display: 'block' }}>
-        TOP PERFORMERS
-      </Typography>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {positions.map((item, i) => (
+      {/* Header */}
+      <Box sx={{
+        bgcolor: '#2196F3',
+        px: 1.5,
+        py: 0.5,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1
+      }}>
+        <Typography sx={{ fontSize: '0.6rem', fontWeight: 600, color: 'white', width: 30 }}>
+          Rank
+        </Typography>
+        <Typography sx={{ fontSize: '0.6rem', fontWeight: 600, color: 'white', flex: 1 }}>
+          Player
+        </Typography>
+        <Typography sx={{ fontSize: '0.6rem', fontWeight: 600, color: 'white', width: 50, textAlign: 'right' }}>
+          Points
+        </Typography>
+      </Box>
+
+      {/* Rows */}
+      {players.map((player, i) => {
+        const isVisible = showRows.includes(i);
+        return (
           <Box
             key={i}
             sx={{
+              px: 1.5,
+              py: 0.75,
               display: 'flex',
               alignItems: 'center',
               gap: 1,
-              animation: `${slideUp} 0.3s ease-out`,
-              bgcolor: i === 0 ? 'rgba(251,191,36,0.1)' : 'transparent',
-              borderRadius: 1,
-              px: 1,
-              py: 0.25,
+              bgcolor: i === 0 ? 'rgba(251,191,36,0.1)' : i % 2 === 1 ? 'rgba(255,255,255,0.03)' : 'transparent',
+              borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+              opacity: isVisible ? 1 : 0,
+              animation: isVisible ? `${slideUp} 0.3s ease-out` : 'none'
             }}
           >
             <Box
               sx={{
-                width: 16,
-                height: 16,
-                borderRadius: '50%',
-                bgcolor: getMedalColor(item.pos),
+                width: 30,
+                height: 20,
+                borderRadius: 0.5,
+                bgcolor: i === 0 ? '#fbbf24' : i === 1 ? '#9ca3af' : '#cd7f32',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '0.55rem',
-                fontWeight: 700,
-                color: item.pos === 1 ? '#000' : '#fff',
+                justifyContent: 'center'
               }}
             >
-              {item.pos}
+              <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: i === 0 ? '#000' : '#fff' }}>
+                {player.rank}
+              </Typography>
             </Box>
-            <Typography variant="caption" sx={{ color: 'white', fontSize: '0.65rem', flex: 1 }}>
-              {item.name}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#a78bfa', fontSize: '0.6rem', fontWeight: 600 }}>
-              {item.points}
+            <Box sx={{ flex: 1 }}>
+              <Typography sx={{ fontSize: '0.65rem', fontWeight: i === 0 ? 700 : 500, color: 'white' }}>
+                {player.name}
+              </Typography>
+              <Typography sx={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.5)' }}>
+                {player.position}
+              </Typography>
+            </Box>
+            <Typography sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#2196F3', width: 50, textAlign: 'right' }}>
+              {player.points}
             </Typography>
           </Box>
-        ))}
-      </Box>
+        );
+      })}
     </Box>
   );
 };
 
-// 6. Notifications Mini Demo
+// 6. Notifications Mini Demo - matches NotificationBell dropdown
 export const NotificationsMiniDemo: React.FC<{ isHovered: boolean }> = ({ isHovered }) => {
-  const [notifications, setNotifications] = useState<{ text: string; type: string }[]>([]);
-  const notifData = [
-    { text: 'New workout assigned', type: 'info' },
-    { text: 'Session in 30 min', type: 'warning' },
-    { text: 'PR achieved!', type: 'success' },
-  ];
+  const [showNotifs, setShowNotifs] = useState<number[]>([]);
+  const [showBadge, setShowBadge] = useState(false);
 
   useEffect(() => {
     if (isHovered) {
-      setNotifications([]);
-      notifData.forEach((notif, i) => {
+      setShowNotifs([]);
+      setShowBadge(false);
+      [0, 1, 2].forEach((i) => {
         setTimeout(() => {
-          setNotifications(prev => [...prev, notif]);
-        }, i * 300);
+          setShowNotifs(prev => [...prev, i]);
+          if (i === 2) setTimeout(() => setShowBadge(true), 100);
+        }, i * 200);
       });
     } else {
-      setNotifications([]);
+      setShowNotifs([]);
+      setShowBadge(false);
     }
   }, [isHovered]);
 
-  const getNotifColor = (type: string) => {
-    if (type === 'success') return '#10b981';
-    if (type === 'warning') return '#f59e0b';
-    return '#06b6d4';
-  };
+  const notifications = [
+    { icon: AddCircleIcon, title: 'New plan assigned', time: '2h ago', color: '#2196F3' },
+    { icon: CheckCircleIcon, title: 'Workout completed', time: '5h ago', color: '#4caf50' },
+    { icon: EventIcon, title: 'Session tomorrow', time: '1d ago', color: '#ff9800' },
+  ];
 
   return (
     <Box sx={{
@@ -457,52 +525,73 @@ export const NotificationsMiniDemo: React.FC<{ isHovered: boolean }> = ({ isHove
       height: 120,
       bgcolor: 'rgba(0,0,0,0.3)',
       borderRadius: 1.5,
-      p: 1.5,
-      overflow: 'hidden'
+      overflow: 'hidden',
+      position: 'relative'
     }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-        <NotificationsIcon sx={{ fontSize: 12, color: '#06b6d4' }} />
-        <Typography variant="caption" sx={{ color: '#06b6d4', fontWeight: 600, fontSize: '0.65rem' }}>
-          ALERTS
+      {/* Header */}
+      <Box sx={{
+        px: 1.5,
+        py: 0.75,
+        bgcolor: 'rgba(255,255,255,0.05)',
+        borderBottom: '1px solid rgba(255,255,255,0.1)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+      }}>
+        <Typography sx={{ fontSize: '0.7rem', fontWeight: 600, color: 'white' }}>
+          Notifications
         </Typography>
-        {notifications.length > 0 && (
-          <Box sx={{
-            bgcolor: '#ef4444',
-            borderRadius: '50%',
-            width: 14,
-            height: 14,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            animation: `${scaleIn} 0.2s ease-out`,
-          }}>
-            <Typography sx={{ fontSize: '0.55rem', color: 'white', fontWeight: 700 }}>
-              {notifications.length}
-            </Typography>
-          </Box>
+        {showBadge && (
+          <Badge
+            badgeContent={3}
+            sx={{
+              '& .MuiBadge-badge': {
+                bgcolor: '#ef5350',
+                color: 'white',
+                fontSize: '0.6rem',
+                height: 16,
+                minWidth: 16,
+                animation: `${scaleIn} 0.2s ease-out`
+              }
+            }}
+          />
         )}
       </Box>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {notifications.map((notif, i) => (
-          <Box
-            key={i}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              animation: `${slideIn} 0.3s ease-out`,
-              bgcolor: 'rgba(255,255,255,0.05)',
-              borderRadius: 1,
-              px: 1,
-              py: 0.5,
-              borderLeft: `2px solid ${getNotifColor(notif.type)}`,
-            }}
-          >
-            <Typography variant="caption" sx={{ color: 'white', fontSize: '0.65rem' }}>
-              {notif.text}
-            </Typography>
-          </Box>
-        ))}
+
+      {/* Notification items */}
+      <Box sx={{ p: 0.75 }}>
+        {notifications.map((notif, i) => {
+          const isVisible = showNotifs.includes(i);
+          const Icon = notif.icon;
+          return (
+            <Box
+              key={i}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                px: 1,
+                py: 0.5,
+                mb: i < 2 ? 0.5 : 0,
+                borderRadius: 0.75,
+                bgcolor: i === 0 ? 'rgba(33,150,243,0.1)' : 'transparent',
+                borderLeft: i === 0 ? '3px solid #2196F3' : 'none',
+                opacity: isVisible ? 1 : 0,
+                animation: isVisible ? `${slideUp} 0.3s ease-out` : 'none'
+              }}
+            >
+              <Icon sx={{ fontSize: 14, color: notif.color }} />
+              <Box sx={{ flex: 1 }}>
+                <Typography sx={{ fontSize: '0.65rem', fontWeight: i === 0 ? 600 : 400, color: 'white', lineHeight: 1.2 }}>
+                  {notif.title}
+                </Typography>
+                <Typography sx={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.5)' }}>
+                  {notif.time}
+                </Typography>
+              </Box>
+            </Box>
+          );
+        })}
       </Box>
     </Box>
   );

@@ -7,8 +7,8 @@ export type { MockUser };
 export type User = MockUser;
 
 const CURRENT_USER_KEY = 'currentUser';
-const ALL_USERS_KEY = 'rhinos_users';
-const SYNCING_PROFILE_KEY = 'rhinos_syncing_profile';
+const ALL_USERS_KEY = 'teamtrainer_users';
+const SYNCING_PROFILE_KEY = 'teamtrainer_syncing_profile';
 
 /**
  * Calculate age from birth date
@@ -172,6 +172,13 @@ export async function syncUserProfileFromBackend(): Promise<void> {
 
     // Get existing local user
     const localUser = getCurrentUser();
+
+    // Check if this is a different user than what's in localStorage
+    if (localUser && localUser.id !== backendUser.id) {
+      console.log('[USER PROFILE] Different user detected, clearing old user data');
+      // Clear all users list to prevent mixing users from different accounts
+      localStorage.removeItem(ALL_USERS_KEY);
+    }
 
     if (!localUser) {
       // No local user, just save backend user

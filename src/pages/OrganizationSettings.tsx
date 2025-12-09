@@ -278,7 +278,7 @@ export const OrganizationSettings: React.FC = () => {
           name: orgName,
           primaryColor,
           secondaryColor,
-          logoUrl,
+          logoUrl: logoUrl || null, // Convert empty string to null
           seasonPhase,
         }),
       });

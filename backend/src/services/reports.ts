@@ -110,9 +110,21 @@ async function calculatePlayerScore(userId: string, startDate: Date, endDate: Da
 
   // Get points data
   const currentWeek = getISOWeek(endDate);
+
+  // Get user's organizationId for query
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { organizationId: true },
+  });
+
+  if (!user?.organizationId) {
+    return 0; // No organization, can't calculate points
+  }
+
   const weeklyPoints = await prisma.playerWeeklyPoints.findUnique({
     where: {
-      userId_week: {
+      organizationId_userId_week: {
+        organizationId: user.organizationId,
         userId,
         week: currentWeek,
       },
@@ -192,7 +204,8 @@ export async function generateDailyReport(date: Date = new Date()): Promise<Dail
     // Get assigned plan
     const assignment = await prisma.trainingAssignment.findFirst({
       where: {
-        playerId: user.id,
+        playerIds: { has: user.id },
+        active: true,
       },
       include: {
         template: true,
@@ -201,7 +214,7 @@ export async function generateDailyReport(date: Date = new Date()): Promise<Dail
 
     const workoutsCompleted = workouts.length;
     const minutesTrained = workouts.reduce((sum, w) => sum + (w.duration || 0), 0);
-    const workoutsAssigned = assignment ? parseInt(assignment.template.frequencyPerWeek || '3') : 1;
+    const workoutsAssigned = assignment?.template.frequencyPerWeek ? parseInt(assignment.template.frequencyPerWeek) : 1;
 
     // Calculate scores
     const startOfDay = new Date(date);
@@ -367,7 +380,8 @@ export async function generateWeeklyReport(startDate: Date = new Date()): Promis
     // Get assigned plan
     const assignment = await prisma.trainingAssignment.findFirst({
       where: {
-        playerId: user.id,
+        playerIds: { has: user.id },
+        active: true,
       },
       include: {
         template: true,
@@ -376,7 +390,7 @@ export async function generateWeeklyReport(startDate: Date = new Date()): Promis
 
     const workoutsCompleted = workouts.length;
     const minutesTrained = workouts.reduce((sum, w) => sum + (w.duration || 0), 0);
-    const workoutsAssigned = assignment ? parseInt(assignment.template.frequencyPerWeek || '3') : 3;
+    const workoutsAssigned = assignment?.template.frequencyPerWeek ? parseInt(assignment.template.frequencyPerWeek) : 3;
     const daysTrainedInPeriod = new Set(workouts.map(w => w.date)).size;
 
     // Calculate score
@@ -541,7 +555,8 @@ export async function generateMonthlyReport(month: string): Promise<MonthlyRepor
     // Get assigned plan
     const assignment = await prisma.trainingAssignment.findFirst({
       where: {
-        playerId: user.id,
+        playerIds: { has: user.id },
+        active: true,
       },
       include: {
         template: true,
@@ -551,7 +566,7 @@ export async function generateMonthlyReport(month: string): Promise<MonthlyRepor
     const workoutsCompleted = workouts.length;
     const minutesTrained = workouts.reduce((sum, w) => sum + (w.duration || 0), 0);
     const daysInMonth = endDate.getDate();
-    const expectedWorkouts = assignment ? Math.ceil((parseInt(assignment.template.frequencyPerWeek || '3') * daysInMonth) / 7) : daysInMonth / 7;
+    const expectedWorkouts = assignment?.template.frequencyPerWeek ? Math.ceil((parseInt(assignment.template.frequencyPerWeek) * daysInMonth) / 7) : daysInMonth / 7;
 
     // Calculate score
     const currentScore = await calculatePlayerScore(user.id, startDate, endDate);

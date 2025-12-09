@@ -29,6 +29,28 @@ router.get('/me', authenticate, async (req, res) => {
         metricsPublic: true,
         aiCoachEnabled: true,
         createdAt: true,
+        teamMemberships: {
+          where: { isActive: true },
+          select: {
+            jerseyNumber: true,
+            position: {
+              select: {
+                id: true,
+                name: true,
+                abbreviation: true,
+                group: true,
+              },
+            },
+            team: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+          take: 1,
+          orderBy: { joinedAt: 'desc' },
+        },
       },
     });
 
@@ -36,7 +58,23 @@ router.get('/me', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json(user);
+    // Merge TeamMember data with User data (TeamMember takes precedence)
+    const activeTeamMember = user.teamMemberships?.[0];
+    const responseData = {
+      ...user,
+      teamMemberships: undefined, // Remove the array from response
+      // Override with TeamMember data if available
+      ...(activeTeamMember && {
+        jerseyNumber: activeTeamMember.jerseyNumber ?? user.jerseyNumber,
+        position: activeTeamMember.position?.abbreviation ?? user.position,
+        positionFull: activeTeamMember.position?.name,
+        positionGroup: activeTeamMember.position?.group,
+        teamId: activeTeamMember.team?.id,
+        teamName: activeTeamMember.team?.name,
+      }),
+    };
+
+    res.json(responseData);
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to fetch user' });

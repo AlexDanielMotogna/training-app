@@ -30,15 +30,26 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useI18n } from '../i18n/I18nProvider';
-import { getUser } from '../services/userProfile';
+import { getUser, syncUserProfileFromBackend } from '../services/userProfile';
 import { useOrganization } from '../contexts';
+import type { MockUser } from '../services/mock';
 
 export const Dashboard: React.FC = () => {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const currentUser = getUser();
   const { organization } = useOrganization();
   const [greeting, setGreeting] = useState('');
+  const [currentUser, setCurrentUser] = useState<MockUser | null>(getUser());
+
+  // Sync user profile from backend on mount to get latest data
+  useEffect(() => {
+    const syncProfile = async () => {
+      await syncUserProfileFromBackend();
+      // Update local state with fresh data from localStorage
+      setCurrentUser(getUser());
+    };
+    syncProfile();
+  }, []);
 
   useEffect(() => {
     const hour = new Date().getHours();

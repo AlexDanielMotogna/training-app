@@ -91,6 +91,28 @@ const baseThemeOptions: ThemeOptions = {
         },
         '*': {
           boxSizing: 'border-box',
+          // Custom scrollbar styles for Webkit browsers (Chrome, Safari, Edge)
+          '&::-webkit-scrollbar': {
+            width: '10px',
+            height: '10px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: 'rgba(0, 0, 0, 0.05)',
+            borderRadius: '10px',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: `linear-gradient(180deg, ${brand.primary.main} 0%, ${brand.primary.dark} 100%)`,
+            borderRadius: '10px',
+            border: '2px solid rgba(255, 255, 255, 0.1)',
+            transition: 'all 0.2s ease',
+            '&:hover': {
+              background: `linear-gradient(180deg, ${brand.primary.light} 0%, ${brand.primary.main} 100%)`,
+              border: '2px solid rgba(255, 255, 255, 0.2)',
+            },
+            '&:active': {
+              background: brand.primary.dark,
+            },
+          },
         },
       },
     },
@@ -186,6 +208,37 @@ export function createDarkTheme(): ReturnType<typeof createTheme> {
     },
     components: {
       ...baseThemeOptions.components,
+      MuiCssBaseline: {
+        styleOverrides: {
+          ...baseThemeOptions.components?.MuiCssBaseline?.styleOverrides,
+          '*': {
+            boxSizing: 'border-box',
+            // Custom scrollbar styles for dark theme
+            '&::-webkit-scrollbar': {
+              width: '10px',
+              height: '10px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: '10px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: `linear-gradient(180deg, ${brand.primary.main} 0%, ${brand.primary.dark} 100%)`,
+              borderRadius: '10px',
+              border: '2px solid rgba(255, 255, 255, 0.1)',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                background: `linear-gradient(180deg, ${brand.primary.light} 0%, ${brand.primary.main} 100%)`,
+                border: '2px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: `0 0 8px ${brand.primary.main}`,
+              },
+              '&:active': {
+                background: brand.primary.dark,
+              },
+            },
+          },
+        },
+      },
       MuiCard: {
         styleOverrides: {
           root: {
@@ -317,12 +370,44 @@ export function createDarkTheme(): ReturnType<typeof createTheme> {
 }
 
 /**
+ * Lighten a hex color by a percentage
+ */
+function lightenColor(color: string, percent: number): string {
+  const num = parseInt(color.replace('#', ''), 16);
+  const amt = Math.round(2.55 * percent);
+  const R = (num >> 16) + amt;
+  const G = (num >> 8 & 0x00FF) + amt;
+  const B = (num & 0x0000FF) + amt;
+  return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+    (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+    (B < 255 ? B < 1 ? 0 : B : 255))
+    .toString(16).slice(1).toUpperCase();
+}
+
+/**
+ * Darken a hex color by a percentage
+ */
+function darkenColor(color: string, percent: number): string {
+  const num = parseInt(color.replace('#', ''), 16);
+  const amt = Math.round(2.55 * percent);
+  const R = (num >> 16) - amt;
+  const G = (num >> 8 & 0x00FF) - amt;
+  const B = (num & 0x0000FF) - amt;
+  return '#' + (0x1000000 + (R > 0 ? R : 0) * 0x10000 +
+    (G > 0 ? G : 0) * 0x100 +
+    (B > 0 ? B : 0))
+    .toString(16).slice(1).toUpperCase();
+}
+
+/**
  * Create dynamic theme based on branding configuration (for app interior)
  * Keeps the light theme for the main app experience
  */
 export function createDynamicTheme(branding?: TeamBranding): ReturnType<typeof createTheme> {
   const primaryColor = branding?.primaryColor || brand.primary.main;
   const secondaryColor = branding?.secondaryColor || brand.secondary.main;
+  const primaryLight = lightenColor(primaryColor, 20);
+  const primaryDark = darkenColor(primaryColor, 20);
 
   return createTheme({
     ...baseThemeOptions,
@@ -330,8 +415,8 @@ export function createDynamicTheme(branding?: TeamBranding): ReturnType<typeof c
       mode: 'light',
       primary: {
         main: primaryColor,
-        light: brand.primary.light,
-        dark: brand.primary.dark,
+        light: primaryLight,
+        dark: primaryDark,
         contrastText: '#ffffff',
       },
       secondary: {
@@ -356,6 +441,39 @@ export function createDynamicTheme(branding?: TeamBranding): ReturnType<typeof c
       },
       error: {
         main: status.error.main,
+      },
+    },
+    components: {
+      ...baseThemeOptions.components,
+      MuiCssBaseline: {
+        styleOverrides: {
+          ...baseThemeOptions.components?.MuiCssBaseline?.styleOverrides,
+          '*': {
+            boxSizing: 'border-box',
+            // Custom scrollbar with dynamic primary color
+            '&::-webkit-scrollbar': {
+              width: '10px',
+              height: '10px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'rgba(0, 0, 0, 0.05)',
+              borderRadius: '10px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: `linear-gradient(180deg, ${primaryColor} 0%, ${primaryDark} 100%)`,
+              borderRadius: '10px',
+              border: '2px solid rgba(255, 255, 255, 0.1)',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                background: `linear-gradient(180deg, ${primaryLight} 0%, ${primaryColor} 100%)`,
+                border: '2px solid rgba(255, 255, 255, 0.2)',
+              },
+              '&:active': {
+                background: primaryDark,
+              },
+            },
+          },
+        },
       },
     },
   });

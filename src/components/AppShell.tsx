@@ -64,9 +64,15 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const { organization } = useOrganization();
   const user = getUser();
 
-  // Get sport-specific icon for navigation
+  // Get sport-specific icon for navigation (recalculate when organization changes)
   const sportName = (organization as any)?.sport?.name;
-  const SportIconComponent = getSportIcon(sportName);
+  const [SportIconComponent, setSportIconComponent] = useState(() => getSportIcon(sportName));
+
+  // Update icon when organization changes
+  useEffect(() => {
+    const newIcon = getSportIcon(sportName);
+    setSportIconComponent(() => newIcon);
+  }, [sportName, organization]);
 
   useEffect(() => {
     // Load notifications from backend

@@ -41,8 +41,6 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
-import StarIcon from '@mui/icons-material/Star';
-import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import { useI18n } from '../../i18n/I18nProvider';
 import { Footer } from '../../components/public/Footer';
 import { AnimatedHeroDemo } from '../../components/public/AnimatedHeroDemo';
@@ -141,30 +139,6 @@ const STATS = [
   { value: '500+', label: 'Teams Worldwide' },
   { value: '50,000+', label: 'Workouts Completed' },
   { value: '98%', label: 'Satisfaction Rate' },
-];
-
-const TESTIMONIALS = [
-  {
-    name: 'Marcus Johnson',
-    role: 'Head Coach, FC Phoenix',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop',
-    text: 'TeamTrainer transformed how we manage our training programs. The analytics alone helped us improve our team\'s performance by 30%.',
-    rating: 5,
-  },
-  {
-    name: 'Sarah Martinez',
-    role: 'Athletic Director, Tigers Academy',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
-    text: 'Managing multiple teams across different sports used to be a nightmare. Now everything is centralized and our coaches love it.',
-    rating: 5,
-  },
-  {
-    name: 'Coach David Kim',
-    role: 'Basketball Coach, Elite Hoops',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
-    text: 'The player progress tracking is incredible. Parents love the transparency and players are more motivated than ever.',
-    rating: 5,
-  },
 ];
 
 const HOW_IT_WORKS = [
@@ -688,7 +662,7 @@ export const Landing: React.FC = () => {
         sx={{
           position: 'relative',
           py: { xs: 10, md: 14 },
-          background: 'linear-gradient(180deg, rgba(10,10,10,1) 0%, rgba(15,12,22,1) 20%, rgba(20,15,30,1) 40%, rgba(25,18,38,1) 60%, rgba(20,15,30,1) 80%, rgba(10,10,10,1) 100%)',
+          bgcolor: 'rgba(10,10,10,1)',
           '&::before': {
             content: '""',
             position: 'absolute',
@@ -956,7 +930,7 @@ export const Landing: React.FC = () => {
         sx={{
           position: 'relative',
           py: { xs: 8, md: 12 },
-          background: 'linear-gradient(180deg, rgba(10,10,10,1) 0%, rgba(12,12,14,1) 15%, rgba(14,14,16,1) 50%, rgba(12,12,14,1) 85%, rgba(10,10,10,1) 100%)',
+          bgcolor: 'rgba(10,10,10,1)',
         }}
       >
         <Container maxWidth="lg">
@@ -1018,7 +992,7 @@ export const Landing: React.FC = () => {
         sx={{
           position: 'relative',
           py: { xs: 8, md: 12 },
-          background: 'linear-gradient(180deg, rgba(10,10,10,1) 0%, rgba(10,10,12,1) 50%, rgba(10,10,10,1) 100%)',
+          bgcolor: 'rgba(10,10,10,1)',
         }}
       >
         <Container maxWidth="lg">
@@ -1104,103 +1078,12 @@ export const Landing: React.FC = () => {
         </Container>
       </Box>
 
-      {/* Testimonials Section */}
-      <Box
-        sx={{
-          position: 'relative',
-          py: { xs: 8, md: 12 },
-          background: 'linear-gradient(180deg, rgba(10,10,10,1) 0%, rgba(12,12,14,1) 15%, rgba(14,14,16,1) 50%, rgba(12,12,14,1) 85%, rgba(10,10,10,1) 100%)',
-        }}
-      >
-        <Container maxWidth="lg">
-          <Typography
-            variant="overline"
-            sx={{
-              display: 'block',
-              textAlign: 'center',
-              color: '#6366f1',
-              fontWeight: 600,
-              letterSpacing: 2,
-              mb: 2,
-            }}
-          >
-            TESTIMONIALS
-          </Typography>
-          <Typography
-            variant="h3"
-            sx={{
-              textAlign: 'center',
-              fontWeight: 800,
-              mb: 8,
-              letterSpacing: '-1px',
-            }}
-          >
-            Trusted by Coaches Worldwide
-          </Typography>
-
-          <Grid container spacing={4}>
-            {TESTIMONIALS.map((testimonial, index) => (
-              <Grid item xs={12} md={4} key={index}>
-                <Card
-                  sx={{
-                    height: '100%',
-                    bgcolor: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    position: 'relative',
-                    overflow: 'visible',
-                  }}
-                >
-                  <CardContent sx={{ p: 4 }}>
-                    <FormatQuoteIcon
-                      sx={{
-                        position: 'absolute',
-                        top: -20,
-                        left: 24,
-                        fontSize: 48,
-                        color: '#6366f1',
-                        opacity: 0.5,
-                      }}
-                    />
-                    <Stack direction="row" spacing={0.5} sx={{ mb: 3 }}>
-                      {[...Array(testimonial.rating)].map((_, i) => (
-                        <StarIcon key={i} sx={{ fontSize: 20, color: '#fbbf24' }} />
-                      ))}
-                    </Stack>
-                    <Typography
-                      variant="body1"
-                      sx={{ mb: 4, color: 'grey.300', lineHeight: 1.8, fontStyle: 'italic' }}
-                    >
-                      "{testimonial.text}"
-                    </Typography>
-                    <Stack direction="row" spacing={2} alignItems="center">
-                      <Avatar
-                        src={testimonial.avatar}
-                        alt={testimonial.name}
-                        sx={{ width: 48, height: 48 }}
-                      />
-                      <Box>
-                        <Typography variant="subtitle2" fontWeight={700}>
-                          {testimonial.name}
-                        </Typography>
-                        <Typography variant="caption" color="grey.500">
-                          {testimonial.role}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </Container>
-      </Box>
-
       {/* Pricing Preview */}
       <Box
         sx={{
           position: 'relative',
           py: { xs: 8, md: 12 },
-          background: 'linear-gradient(180deg, rgba(10,10,10,1) 0%, rgba(10,10,12,1) 50%, rgba(10,10,10,1) 100%)',
+          bgcolor: 'rgba(10,10,10,1)',
         }}
       >
         <Container maxWidth="lg">
@@ -1436,19 +1319,6 @@ export const Landing: React.FC = () => {
           overflow: 'hidden',
         }}
       >
-        {/* Smooth transition overlay from dark to gradient */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 200,
-            background: 'linear-gradient(180deg, rgba(10,10,10,1) 0%, rgba(10,10,10,0.7) 30%, rgba(10,10,10,0) 100%)',
-            zIndex: 2,
-            pointerEvents: 'none',
-          }}
-        />
         {/* Background Gradient */}
         <Box
           sx={{

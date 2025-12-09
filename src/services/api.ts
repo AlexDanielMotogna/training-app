@@ -73,6 +73,11 @@ export const setAuthToken = (token: string): void => {
 export const clearAuthToken = (): void => {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('currentUser');
+  // Clear all user data to prevent mixing users from different accounts
+  localStorage.removeItem('teamtrainer_users');
+  localStorage.removeItem('rhinos_users'); // Legacy key cleanup
+  localStorage.removeItem('teamtrainer_syncing_profile');
+  localStorage.removeItem('rhinos_syncing_profile'); // Legacy key cleanup
 };
 
 // API call helper with auth headers

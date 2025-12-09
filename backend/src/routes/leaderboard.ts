@@ -93,7 +93,7 @@ router.get('/', async (req, res) => {
     const { startDate, endDate, month: currentMonth } = getCurrentMonthDates();
 
     // Filter users by category (players AND coaches!)
-    let userIdsToInclude: string[] | null = null;
+    let userIdsToInclude: string[] | undefined = undefined;
     if (categoryFilter.length > 0) {
       // Get players in the category
       const players = await prisma.user.findMany({
@@ -115,12 +115,14 @@ router.get('/', async (req, res) => {
         ...coaches.map(c => c.id),
       ];
     }
+    // If no category filter (coach has no categories), show all players from organization
+    // Note: organization filtering is already handled by tenant middleware
 
     // Get all workouts for the current month
     const whereWorkouts: any = {
       date: { gte: startDate, lte: endDate },
     };
-    if (userIdsToInclude) {
+    if (userIdsToInclude !== undefined) {
       whereWorkouts.userId = { in: userIdsToInclude };
     }
 
@@ -251,7 +253,7 @@ router.get('/month/:month', async (req, res) => {
     const endDate = new Date(year, monthNum, 0).toISOString().split('T')[0];
 
     // Filter users by category
-    let userIdsToInclude: string[] | null = null;
+    let userIdsToInclude: string[] | undefined = undefined;
     if (categoryFilter.length > 0) {
       const players = await prisma.user.findMany({
         where: { role: 'player', ageCategory: { in: categoryFilter } },
@@ -263,10 +265,11 @@ router.get('/month/:month', async (req, res) => {
       });
       userIdsToInclude = [...players.map(p => p.id), ...coaches.map(c => c.id)];
     }
+    // If no category filter (coach has no categories), show all players from organization
 
     // Get workouts
     const whereWorkouts: any = { date: { gte: startDate, lte: endDate } };
-    if (userIdsToInclude) {
+    if (userIdsToInclude !== undefined) {
       whereWorkouts.userId = { in: userIdsToInclude };
     }
 
@@ -424,10 +427,21 @@ router.post('/sync', async (req, res) => {
     const user = (req as any).user;
     const data = syncWeeklyPointsSchema.parse(req.body);
 
+    // Get user's organizationId
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.userId },
+      select: { organizationId: true },
+    });
+
+    if (!dbUser?.organizationId) {
+      return res.status(400).json({ error: 'User must belong to an organization' });
+    }
+
     // Upsert player weekly points (create or update)
     const weeklyPoints = await prisma.playerWeeklyPoints.upsert({
       where: {
-        userId_week: {
+        organizationId_userId_week: {
+          organizationId: dbUser.organizationId,
           userId: user.userId,
           week: data.week,
         },
@@ -443,6 +457,7 @@ router.post('/sync', async (req, res) => {
         lastUpdated: new Date(),
       },
       create: {
+        organizationId: dbUser.organizationId,
         userId: user.userId,
         week: data.week,
         totalPoints: data.totalPoints,
